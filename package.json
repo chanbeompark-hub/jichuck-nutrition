@@ -1,0 +1,15 @@
+{
+  "name": "nutrition-guide",
+  "version": "1.0.0",
+  "private": true,
+  "description": "피트니스 박부장 · 박찬범 트레이너 — 회원용 식단 칼로리 계산기",
+  "scripts": {
+    "dev": "wrangler dev --port 8789",
+    "check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.129.0"
+  }
+}
