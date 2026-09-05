@@ -7,6 +7,9 @@
 빌드 도구 없는 정적 사이트입니다. HTML / CSS / JS 파일만 있고,
 Cloudflare Workers 정적 호스팅으로 배포합니다.
 
+**배포 주소** — https://nutrition-guide.pcbpcb1990.workers.dev
+**트레이너용 회원 기록** — https://nutrition-guide.pcbpcb1990.workers.dev/admin
+
 원본은 `회원_식단_자동설계_통합관리_음식DB_150개확장.xlsx` 이며,
 그 파일의 계산 로직(회원설정 · 자동식단설계 · 자동식단3안 · 영양가이드 시트)과
 음식 DB 181종을 그대로 웹으로 옮겼습니다.
@@ -18,7 +21,7 @@ Cloudflare Workers 정적 호스팅으로 배포합니다.
 ```
 public/                   # 정적 파일 (Cloudflare 가 직접 서빙)
   index.html              # 계산기 본문
-  admin.html              # 트레이너용 회원 기록 조회
+  admin.html              # 트레이너용 회원 기록 조회 (주소는 /admin)
   404.html
   robots.txt
   sitemap.xml
@@ -105,7 +108,7 @@ wrangler.jsonc            # Cloudflare 배포 설정
 
 계산기를 쓰기 전에 **이름 · 연락처 · 개인정보 동의**를 받고, 계산할 때마다
 그 회원의 마지막 입력값과 결과를 Cloudflare D1 에 남깁니다.
-트레이너는 `/admin.html` 에서 전체 명단을 보고 CSV 로 내려받을 수 있습니다.
+트레이너는 `/admin` 에서 전체 명단을 보고 CSV 로 내려받을 수 있습니다.
 
 ### 시작 화면의 두 갈래
 
@@ -137,12 +140,12 @@ wrangler.jsonc            # Cloudflare 배포 설정
 - 동의하지 않아도 `건너뛰고 바로 쓰기` 로 계산기를 그대로 쓸 수 있습니다 (이 경우 서버 통신 없음)
 - 회원은 언제든 `내 기록 삭제` 버튼으로 자기 데이터를 지울 수 있습니다 (DB에서 실제 삭제)
 - 관리자 키는 코드에 없고 Cloudflare secret 으로만 존재합니다
-- `admin.html` 은 `robots.txt` 와 `X-Robots-Tag` 로 검색 제외 처리했습니다
+- `/admin` 은 `robots.txt` 와 `X-Robots-Tag` 로 검색 제외 처리했습니다
 - 관리자 키는 `sessionStorage` 에만 있어 탭을 닫으면 사라집니다
 
 ---
 
-## 처음 한 번만 하는 준비
+## 처음 한 번만 하는 준비 (이미 완료됨)
 
 ### 1. D1 데이터베이스 만들기
 
@@ -150,8 +153,9 @@ wrangler.jsonc            # Cloudflare 배포 설정
 npx wrangler d1 create nutrition-guide-db
 ```
 
-출력에 나오는 `database_id` 를 `wrangler.jsonc` 의
-`PUT-YOUR-DATABASE-ID-HERE` 자리에 붙여넣습니다.
+출력에 나오는 `database_id` 를 `wrangler.jsonc` 에 적습니다.
+현재 값은 `bf95780a-736b-47e5-888e-d99b0244e647` 이며 이미 반영돼 있습니다.
+(D1 의 database_id 는 비밀값이 아니라 계정 인증 없이는 쓸 수 없어 공개 저장소에 두어도 됩니다.)
 
 ### 2. 테이블 만들기
 
@@ -165,7 +169,7 @@ npx wrangler d1 execute nutrition-guide-db --remote --file=./schema.sql
 npx wrangler secret put ADMIN_KEY
 ```
 
-물어보면 원하는 비밀번호를 입력합니다. 이 값이 `/admin.html` 의 비밀번호가 됩니다.
+물어보면 원하는 비밀번호를 입력합니다. 이 값이 `/admin` 의 비밀번호가 됩니다.
 **길고 추측하기 어려운 값으로 정하세요.** 이 키 하나로 전 회원 개인정보가 열립니다.
 
 ---
@@ -176,9 +180,8 @@ npx wrangler secret put ADMIN_KEY
 npx wrangler deploy
 ```
 
-`https://nutrition-guide.<계정>.workers.dev` 로 올라갑니다.
-배포 후 `public/robots.txt` · `public/sitemap.xml` · `index.html` 의 `canonical`
-주소를 실제 도메인으로 바꿔 주세요.
+https://nutrition-guide.pcbpcb1990.workers.dev 로 올라갑니다.
+`robots.txt` · `sitemap.xml` · `canonical` 주소는 이미 이 도메인으로 맞춰져 있습니다.
 
 설정이 맞는지만 확인하려면 (업로드 없이):
 
