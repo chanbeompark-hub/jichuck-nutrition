@@ -5,10 +5,10 @@
 **맞춤 식단 3안**까지 자동으로 만들어 주는 공개용 웹사이트입니다.
 
 빌드 도구 없는 정적 사이트입니다. HTML / CSS / JS 파일만 있고,
-Cloudflare Workers 정적 호스팅으로 배포합니다.
+Cloudflare Pages 로 배포하며, GitHub 에 푸시하면 자동 배포됩니다.
 
-**배포 주소** — https://nutrition-guide.pcbpcb1990.workers.dev
-**트레이너용 회원 기록** — https://nutrition-guide.pcbpcb1990.workers.dev/admin
+**배포 주소** — https://jichuck-nutrition.pages.dev
+**트레이너용 회원 기록** — https://jichuck-nutrition.pages.dev/admin
 
 원본은 `회원_식단_자동설계_통합관리_음식DB_150개확장.xlsx` 이며,
 그 파일의 계산 로직(회원설정 · 자동식단설계 · 자동식단3안 · 영양가이드 시트)과
@@ -34,8 +34,10 @@ public/                   # 정적 파일 (Cloudflare 가 직접 서빙)
   data/
     foods.js              # 음식 DB 181종 (여기만 고치면 값이 바뀜)
     plans.js              # 활동계수 · 목표별 조정값 · 식단 3안 · 가이드 문구
+functions/
+  api/[[path]].js         # Pages 가 /api/* 를 여기로 보냄 → worker 로 위임
 worker/
-  index.js                # /api/* 만 처리하는 Worker
+  index.js                # API 처리 본체 (고칠 곳은 여기 한 곳)
 schema.sql                # D1 테이블 정의
 wrangler.jsonc            # Cloudflare 배포 설정
 ```
@@ -166,7 +168,7 @@ npx wrangler d1 execute nutrition-guide-db --remote --file=./schema.sql
 ### 3. 관리자 키 지정
 
 ```bash
-npx wrangler secret put ADMIN_KEY
+npx wrangler pages secret put ADMIN_KEY --project-name jichuck-nutrition
 ```
 
 물어보면 원하는 비밀번호를 입력합니다. 이 값이 `/admin` 의 비밀번호가 됩니다.
@@ -176,17 +178,26 @@ npx wrangler secret put ADMIN_KEY
 
 ## 배포
 
+**GitHub main 브랜치에 푸시하면 Cloudflare Pages 가 자동으로 배포합니다.** 보통 1분 안에 반영됩니다.
+
+수동으로 올리려면:
+
 ```bash
-npx wrangler deploy
+npx wrangler pages deploy
 ```
 
-https://nutrition-guide.pcbpcb1990.workers.dev 로 올라갑니다.
-`robots.txt` · `sitemap.xml` · `canonical` 주소는 이미 이 도메인으로 맞춰져 있습니다.
+대시보드 빌드 설정 (GitHub 연결 시)
 
-설정이 맞는지만 확인하려면 (업로드 없이):
+| 항목 | 값 |
+|---|---|
+| 프레임워크 프리셋 | None (없음) |
+| 빌드 명령 | 비워두기 (`npm run build` 로 두어도 통과하도록 no-op 스크립트를 넣어 뒀습니다) |
+| 빌드 출력 디렉터리 | `public` |
+
+빌드 배포 상태 확인:
 
 ```bash
-npx wrangler deploy --dry-run
+npx wrangler pages deployment list --project-name jichuck-nutrition
 ```
 
 ---
@@ -199,6 +210,8 @@ npx wrangler deploy --dry-run
 npx wrangler d1 execute nutrition-guide-db --local --file=./schema.sql
 ```
 
+> Pages 모드의 로컬 D1 은 Workers 모드와 저장 위치가 달라서, 설정을 바꿨다면 이 명령을 다시 한 번 돌려야 합니다.
+
 `.dev.vars` 파일에 관리자 키를 넣고 (이 파일은 git 에 올라가지 않습니다):
 
 ```
@@ -206,7 +219,7 @@ ADMIN_KEY=아무거나
 ```
 
 ```bash
-npx wrangler dev --port 8789
+npm run dev
 ```
 
 `http://localhost:8789` 로 열립니다.

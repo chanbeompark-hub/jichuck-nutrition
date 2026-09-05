@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin
 Disallow: /admin.html
 Disallow: /api/
 
-Sitemap: https://nutrition-guide.pcbpcb1990.workers.dev/sitemap.xml
+Sitemap: https://jichuck-nutrition.pages.dev/sitemap.xml
