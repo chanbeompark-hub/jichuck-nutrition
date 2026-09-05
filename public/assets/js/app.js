@@ -593,14 +593,20 @@
 
   /* ---------------------------------------------------------------- 회원 */
 
-  var member = null;   // { id, name }
+  // { id, name } = 등록한 회원 / { skipped: true } = 이름 없이 쓰는 사람 / null = 아직 정하지 않음
+  var member = null;
+
+  var isRegistered = function () { return !!(member && member.id); };
+  var hasChosen    = function () { return !!(member && (member.id || member.skipped)); };
 
   function loadMember() {
     try {
       var raw = localStorage.getItem(MEMBER);
       if (!raw) return null;
       var d = JSON.parse(raw);
-      return (d && d.id && d.name) ? d : null;
+      if (d && d.id && d.name) return d;
+      if (d && d.skipped) return { skipped: true };
+      return null;
     } catch (e) { return null; }
   }
 
@@ -612,6 +618,7 @@
     $('gate').hidden = false;
     $('app').hidden = true;
     $('foodSection').hidden = true;
+    $('gate').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function showApp() {
@@ -619,7 +626,23 @@
     $('app').hidden = false;
     $('foodSection').hidden = false;
     $('welcome').hidden = false;
-    $('welcomeName').textContent = member ? member.name : '';
+
+    var reg = isRegistered();
+    $('welcome').className = 'welcome' + (reg ? '' : ' anon');
+    $('welcomeWho').innerHTML = reg
+      ? '<b>' + esc(member.name) + '</b> 님, 반갑습니다'
+      : '이름 없이 이용 중입니다';
+    $('registerBtn').hidden = reg;
+    $('forgetBtn').hidden = !reg;
+    if (!reg) syncNote('');
+  }
+
+  function skip() {
+    member = { skipped: true };
+    saveMember(member);
+    gateError('');
+    showApp();
+    $('input').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function gateError(msg) {
@@ -677,6 +700,8 @@
       showApp();
       syncNote('');
       $('input').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // 건너뛰고 쓰다가 뒤늦게 등록한 경우, 이미 낸 결과도 같이 보낸다
+      if (state) pushResult(state);
     } catch (err) {
       gateError(err.message);
     } finally {
@@ -687,7 +712,7 @@
 
   // 계산 결과를 서버에 남긴다. 실패해도 계산기 사용은 막지 않는다.
   async function pushResult(s) {
-    if (!member) return;
+    if (!isRegistered()) return;   // 이름 없이 쓰는 사람의 값은 서버로 보내지 않는다
     syncNote('저장하는 중…');
     try {
       await api('/api/result', {
@@ -710,7 +735,7 @@
   }
 
   async function forget() {
-    if (!member) return;
+    if (!isRegistered()) return;
     if (!window.confirm('저장된 내 기록을 지웁니다. 계속할까요?')) return;
     try { await api('/api/forget', { id: member.id }); } catch (e) { /* 이미 없을 수 있다 */ }
     try {
@@ -755,10 +780,15 @@
     renderFoods();
 
     member = loadMember();
-    if (member) { showApp(); } else { showGate(); }
+    if (hasChosen()) { showApp(); } else { showGate(); }
 
     $('gateForm').addEventListener('submit', submitGate);
+    $('skipBtn').addEventListener('click', skip);
     $('forgetBtn').addEventListener('click', forget);
+    $('registerBtn').addEventListener('click', function () {
+      gateError('');
+      showGate();
+    });
 
     var restored = load();
 

@@ -76,7 +76,8 @@
           <dt>수집 항목</dt><dd>이름, 연락처, 입력한 신체 정보와 계산 결과</dd>
           <dt>이용 목적</dt><dd>식단 상담과 회원 관리</dd>
           <dt>보관 기간</dt><dd>회원 관리 종료 시까지. 아래 <b>내 기록 삭제</b>를 누르면 즉시 지워집니다</dd>
-          <dt>동의 거부</dt><dd>동의하지 않아도 됩니다. 다만 이 경우 계산기를 이용할 수 없습니다</dd>
+          <dt>동의 거부</dt><dd>동의하지 않아도 됩니다. 아래 <b>건너뛰고 바로 쓰기</b>를 누르면
+            아무것도 저장하지 않고 계산기를 쓰실 수 있습니다</dd>
         </dl>
       </div>
 
@@ -89,7 +90,13 @@
 
       <div class="actions">
         <button type="submit" class="btn btn-primary" id="gateBtn">동의하고 시작하기</button>
+        <button type="button" class="btn btn-ghost" id="skipBtn">건너뛰고 바로 쓰기</button>
       </div>
+      <p class="gate-skip-note">
+        건너뛰면 아무것도 저장하지 않고 계산기만 쓰실 수 있습니다.
+        대신 결과가 트레이너에게 전달되지 않아 상담으로 이어지지 않습니다.
+        나중에 마음이 바뀌면 화면 위에서 이름을 남길 수 있습니다.
+      </p>
     </form>
   </section>
 
@@ -98,9 +105,10 @@
 
   <div class="wrap">
     <div class="welcome" id="welcome" hidden>
-      <span class="who"><b id="welcomeName"></b> 님, 반갑습니다</span>
+      <span class="who" id="welcomeWho"></span>
       <span class="sync" id="syncNote"></span>
-      <button type="button" class="link-btn" id="forgetBtn">내 기록 삭제</button>
+      <button type="button" class="link-btn" id="registerBtn" hidden>이름 남기기</button>
+      <button type="button" class="link-btn" id="forgetBtn" hidden>내 기록 삭제</button>
     </div>
   </div>
 

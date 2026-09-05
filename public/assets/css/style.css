@@ -141,6 +141,11 @@ section { padding: 26px 0; }
 .consent span { font-size: 14px; color: var(--ink-2); }
 .consent b { font-weight: 800; color: var(--ink); }
 
+.gate-skip-note {
+  margin-top: 12px; font-size: 12.5px; color: var(--ink-3); line-height: 1.7;
+  max-width: 620px;
+}
+
 /* ---------- 환영 바 ---------- */
 .welcome {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -148,6 +153,8 @@ section { padding: 26px 0; }
   background: var(--lime-soft); border: 1px solid var(--lime-line);
   margin-bottom: 4px;
 }
+.welcome.anon { background: #f6f7f3; border-color: var(--line); }
+.welcome.anon .who { color: var(--ink-3); }
 .welcome .who { font-size: 14px; font-weight: 700; color: #55691a; }
 .welcome .who b { font-weight: 900; }
 .welcome .sync { font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
