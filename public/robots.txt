@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nutrition-guide.pcbpcb1990.workers.dev/sitemap.xml

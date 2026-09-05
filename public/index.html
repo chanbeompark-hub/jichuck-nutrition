@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NUTRITION GUIDE — 내 식단 칼로리 계산기</title>
+<meta name="description" content="나이·키·체중·활동량을 넣으면 하루 목표 칼로리와 탄단지를 계산하고, 음식 181종 데이터로 맞춤 식단 3안을 만들어 줍니다.">
+<meta name="theme-color" content="#9ec93a">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://nutrition-guide.pages.dev/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="NUTRITION GUIDE — 내 식단 칼로리 계산기">
+<meta property="og:description" content="나이·키·체중·활동량만 넣으면 하루 목표 칼로리와 탄단지, 맞춤 식단 3안까지 한 번에.">
+<meta property="og:locale" content="ko_KR">
+
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="dot">N</span> NUTRITION GUIDE</a>
+    <nav class="topnav">
+      <a href="#input">내 정보</a>
+      <a href="#results">하루 목표</a>
+      <a href="#plans">식단 3안</a>
+      <a href="#foodSection">음식 찾기</a>
+      <a href="#guide">가이드</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <div class="hero wrap">
+    <span class="kicker">NUTRITION GUIDE</span>
+    <h1>내 식단 칼로리 계산기</h1>
+    <div class="rule"><span>회원용 기초 영양 가이드</span></div>
+    <p class="lede">
+      나이 · 키 · 체중 · 활동량만 넣으면 하루에 먹어야 할 칼로리와
+      탄수화물 · 단백질 · 지방의 양, 그리고 그걸 채우는 식단 3안까지 자동으로 만들어 드립니다.
+    </p>
+  </div>
+
+  <!-- ================= 01 입력 ================= -->
+  <section id="input" class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2 class="sec-title">내 정보 입력</h2>
+    </div>
+
+    <form class="card" id="userForm" novalidate>
+      <div class="form-grid">
+        <div class="field" style="grid-column: span 2;">
+          <label>성별</label>
+          <div class="seg">
+            <input type="radio" name="sex" id="sexM" value="male" checked><label for="sexM">남성</label>
+            <input type="radio" name="sex" id="sexF" value="female"><label for="sexF">여성</label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="age">나이</label>
+          <input type="number" id="age" inputmode="numeric" min="14" max="90" step="1" value="35" required>
+          <span class="hint">만 나이</span>
+        </div>
+
+        <div class="field">
+          <label for="height">키 (cm)</label>
+          <input type="number" id="height" inputmode="decimal" min="130" max="220" step="0.1" value="170" required>
+        </div>
+
+        <div class="field">
+          <label for="weight">현재 체중 (kg)</label>
+          <input type="number" id="weight" inputmode="decimal" min="30" max="200" step="0.1" value="70" required>
+        </div>
+
+        <div class="field">
+          <label for="activity">활동 수준</label>
+          <select id="activity"></select>
+          <span class="hint" id="activityHint"></span>
+        </div>
+
+        <div class="field">
+          <label for="goal">목표</label>
+          <select id="goal"></select>
+          <span class="hint" id="goalHint"></span>
+        </div>
+
+        <div class="field">
+          <label for="meals">하루 식사 횟수</label>
+          <select id="meals">
+            <option value="3">3끼</option>
+            <option value="4" selected>4끼</option>
+            <option value="5">5끼</option>
+          </select>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>인바디 값이 있거나, 직접 조정하고 싶다면</summary>
+        <div class="form-grid">
+          <div class="field">
+            <label for="bmrInput">인바디 기초대사량 (kcal)</label>
+            <input type="number" id="bmrInput" inputmode="numeric" min="0" max="4000" step="1" placeholder="비워두면 자동 계산">
+            <span class="hint">입력하면 추정식 대신 이 값을 씁니다</span>
+          </div>
+          <div class="field">
+            <label for="targetWeight">목표 체중 (kg)</label>
+            <input type="number" id="targetWeight" inputmode="decimal" min="30" max="200" step="0.1" placeholder="선택">
+          </div>
+          <div class="field">
+            <label for="weeks">목표 기간 (주)</label>
+            <input type="number" id="weeks" inputmode="numeric" min="1" max="104" step="1" placeholder="선택" value="12">
+          </div>
+          <div class="field">
+            <label for="proteinPerKg">단백질 기준 (g/kg)</label>
+            <input type="number" id="proteinPerKg" inputmode="decimal" min="0.8" max="3" step="0.1" value="1.8">
+            <span class="hint">체중 1kg당 단백질</span>
+          </div>
+          <div class="field">
+            <label for="fatPerKg">지방 기준 (g/kg)</label>
+            <input type="number" id="fatPerKg" inputmode="decimal" min="0.4" max="2" step="0.1" value="0.8">
+            <span class="hint">체중 1kg당 지방</span>
+          </div>
+          <div class="field">
+            <label for="calAdjust">칼로리 직접 조정 (kcal)</label>
+            <input type="number" id="calAdjust" inputmode="numeric" min="-1000" max="1000" step="10">
+            <span class="hint">비워두면 목표별 기본값 사용</span>
+          </div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">내 식단 계산하기</button>
+        <button type="button" class="btn btn-ghost" id="resetBtn">처음 값으로</button>
+        <button type="button" class="btn btn-ghost" id="printBtn">결과 인쇄 / PDF 저장</button>
+      </div>
+      <p class="hint" style="margin-top:12px; color:var(--ink-3); font-size:12px;">
+        입력한 값은 이 브라우저에만 저장되고 서버로 전송되지 않습니다.
+      </p>
+    </form>
+  </section>
+
+  <!-- ================= 02 하루 목표 ================= -->
+  <section id="results" hidden>
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-num">02</span>
+        <h2 class="sec-title">내 하루 목표</h2>
+        <span class="sec-sub" id="resultSummary"></span>
+      </div>
+
+      <div class="card">
+        <div class="kpi-row">
+          <div class="kpi">
+            <div class="kpi-label">기초대사량 (BMR)</div>
+            <div class="kpi-val" id="kBmr">–<em>kcal</em></div>
+            <div class="kpi-note" id="kBmrNote"></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">활동대사 포함 (TDEE)</div>
+            <div class="kpi-val" id="kTdee">–<em>kcal</em></div>
+            <div class="kpi-note" id="kTdeeNote"></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">목표 조정</div>
+            <div class="kpi-val" id="kAdjust">–<em>kcal</em></div>
+            <div class="kpi-note" id="kAdjustNote"></div>
+          </div>
+          <div class="kpi hero-kpi">
+            <div class="kpi-label">하루 목표 칼로리</div>
+            <div class="kpi-val" id="kTarget">–<em>kcal</em></div>
+            <div class="kpi-note" id="kTargetNote"></div>
+          </div>
+        </div>
+
+        <div class="macro-row">
+          <div class="macro carb">
+            <div class="name">탄수화물</div>
+            <div class="g" id="mCarb">–<em>g</em></div>
+            <div class="sub" id="mCarbSub"></div>
+            <div class="bar"><i id="mCarbBar"></i></div>
+          </div>
+          <div class="macro prot">
+            <div class="name">단백질</div>
+            <div class="g" id="mProt">–<em>g</em></div>
+            <div class="sub" id="mProtSub"></div>
+            <div class="bar"><i id="mProtBar"></i></div>
+          </div>
+          <div class="macro fat">
+            <div class="name">지방</div>
+            <div class="g" id="mFat">–<em>g</em></div>
+            <div class="sub" id="mFatSub"></div>
+            <div class="bar"><i id="mFatBar"></i></div>
+          </div>
+        </div>
+
+        <div id="warnings"></div>
+
+        <div class="table-scroll">
+          <table>
+            <caption class="sr-only">끼니별 균등 배분표</caption>
+            <thead>
+              <tr><th>끼니</th><th>kcal</th><th>탄수 (g)</th><th>단백질 (g)</th><th>지방 (g)</th></tr>
+            </thead>
+            <tbody id="mealSplit"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 03 식단 3안 ================= -->
+  <section id="plans" hidden>
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-num">03</span>
+        <h2 class="sec-title">맞춤 식단 3안</h2>
+        <span class="sec-sub">하루 총량 기준 · 3~4끼로 나눠 드세요</span>
+      </div>
+
+      <div class="plan-tabs" id="planTabs" role="tablist"></div>
+      <div id="planPanels"></div>
+    </div>
+  </section>
+
+  <!-- ================= 04 음식 찾기 ================= -->
+  <section id="foodSection">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-num">04</span>
+        <h2 class="sec-title">음식 찾기</h2>
+        <span class="sec-sub" id="dbCount"></span>
+      </div>
+
+      <div class="card">
+        <div class="search-bar">
+          <div class="field">
+            <label for="foodQuery">음식 이름</label>
+            <input type="search" id="foodQuery" placeholder="예: 현미밥, 닭가슴살, 아몬드" autocomplete="off">
+          </div>
+          <div class="field" style="flex:0 1 160px;">
+            <label for="portion">먹을 양 (g/ml)</label>
+            <input type="number" id="portion" inputmode="numeric" min="1" max="2000" step="10" value="100">
+          </div>
+        </div>
+
+        <div class="chips" id="catChips"></div>
+        <p class="food-count" id="foodCount"></p>
+
+        <div class="table-scroll">
+          <table id="foodTable">
+            <thead>
+              <tr>
+                <th>음식</th><th>구분</th><th>kcal</th>
+                <th>탄수 (g)</th><th>단백질 (g)</th><th>지방 (g)</th><th>메모</th>
+              </tr>
+            </thead>
+            <tbody id="foodRows"></tbody>
+          </table>
+        </div>
+        <div class="more-wrap">
+          <button type="button" class="btn btn-ghost" id="moreBtn" hidden>더 보기</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 05 가이드 ================= -->
+  <section id="guide">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="sec-num">05</span>
+        <h2 class="sec-title">영양 가이드</h2>
+      </div>
+
+      <div class="guide-grid">
+        <div class="guide-card">
+          <h3>기본 원칙</h3>
+          <ul id="gPrinciples"></ul>
+        </div>
+        <div class="guide-card">
+          <h3>항상 포함시키면 좋은 음식</h3>
+          <div id="gGroups"></div>
+        </div>
+        <div class="guide-card">
+          <h3>실전 체크리스트</h3>
+          <ul id="gChecklist"></ul>
+        </div>
+        <div class="guide-card">
+          <h3>간편하게 활용하는 식품</h3>
+          <p style="font-size:14px; color:var(--ink-2);" id="gToEat"></p>
+          <p style="font-size:12.5px; color:var(--ink-3); margin-top:12px;">
+            ※ 칼로리 · 영양성분은 제품과 조리법에 따라 달라집니다. 포장 식품은 라벨 값을 우선하세요.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="disclaimer">
+      이 계산기의 목적은 정해진 식단을 그대로 따르게 하는 것이 아니라,
+      본인의 목표 섭취량과 음식 구성을 이해하고 스스로 조절할 수 있게 하는 것입니다.
+      계산값은 통계적 추정식(Mifflin-St Jeor)에 기반한 <b>출발점</b>이며,
+      첫 1~2주간의 실제 체중 추세와 컨디션에 따라 조정해서 쓰세요.
+      신장질환 · 당뇨 · 임신 · 수유 · 섭식장애 · 약물치료 중이라면 이 가이드보다
+      의료진과 영양사의 개별 지도를 우선하시기 바랍니다.
+    </p>
+    <p class="src">
+      영양성분 출처 · 국가표준식품성분표(<a href="https://www.nics.go.kr/food/" target="_blank" rel="noopener">nics.go.kr</a>),
+      USDA FoodData Central(<a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener">fdc.nal.usda.gov</a>)
+    </p>
+  </div>
+</footer>
+
+<script src="/data/foods.js"></script>
+<script src="/data/plans.js"></script>
+<script src="/assets/js/app.js"></script>
+</body>
+</html>
