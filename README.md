@@ -202,6 +202,43 @@ npx wrangler pages deployment list --project-name jichuck-nutrition
 
 ---
 
+## 배포가 실패로 보일 때
+
+### `Retry deployment` 를 누르지 마세요
+
+대시보드의 **Retry deployment 는 그 배포가 만들어진 시점의 커밋을 다시 빌드합니다.**
+옛 커밋에서 실패한 배포를 재시도하면, 지금 코드가 아무리 멀쩡해도 **똑같은 오류가 영원히 납니다.**
+
+특히 아래 두 오류가 함께 보이면 `a6f6b0f` 이전 커밋을 빌드하고 있는 것입니다.
+
+```
+A Wrangler configuration file was found but it does not appear to be valid.
+npm error Missing script: "build"
+```
+
+그 시점에는 설정이 Workers 형식이었고 `build` 스크립트도 없었습니다. 지금은 둘 다 해결돼 있습니다.
+
+### 대신 이렇게 하세요
+
+새 커밋을 푸시하면 최신 코드로 새 빌드가 돕니다.
+
+```bash
+git commit --allow-empty -m "재배포" && git push
+```
+
+### 지금 사이트가 살아 있는지 먼저 확인
+
+실패한 빌드는 배포되지 않으므로 **기존 사이트는 그대로 서비스됩니다.**
+빨간 줄이 보여도 사이트는 멀쩡한 경우가 대부분입니다.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://jichuck-nutrition.pages.dev/
+```
+
+`200` 이면 정상입니다. 어떤 커밋이 배포돼 있는지는 위의 `deployment list` 로 확인하세요.
+
+---
+
 ## 로컬에서 보기
 
 로컬은 별도의 SQLite 파일을 쓰므로 실서비스 데이터에 영향을 주지 않습니다.
