@@ -92,11 +92,11 @@
         <button type="submit" class="btn btn-primary" id="gateBtn">동의하고 시작하기</button>
         <button type="button" class="btn btn-ghost" id="skipBtn">건너뛰고 바로 쓰기</button>
       </div>
-      <p class="gate-skip-note">
-        건너뛰면 아무것도 저장하지 않고 계산기만 쓰실 수 있습니다.
-        대신 결과가 트레이너에게 전달되지 않아 상담으로 이어지지 않습니다.
-        나중에 마음이 바뀌면 화면 위에서 이름을 남길 수 있습니다.
-      </p>
+      <div class="gate-skip-note">
+        <p>건너뛰면 아무것도 저장하지 않고 계산기만 쓰실 수 있습니다.</p>
+        <p>대신 결과가 트레이너에게 전달되지 않아 상담으로 이어지지 않습니다.</p>
+        <p>나중에 마음이 바뀌면 화면 위에서 이름을 남길 수 있습니다.</p>
+      </div>
     </form>
   </section>
 
@@ -277,6 +277,7 @@
             <tbody id="mealSplit"></tbody>
           </table>
         </div>
+        <p class="scroll-hint">표를 좌우로 밀면 나머지 항목이 보입니다.</p>
       </div>
     </div>
   </section>
@@ -332,6 +333,8 @@
             <tbody id="foodRows"></tbody>
           </table>
         </div>
+        <p class="scroll-hint">표를 좌우로 밀면 나머지 영양성분이 보입니다.</p>
+
         <div class="more-wrap">
           <button type="button" class="btn btn-ghost" id="moreBtn" hidden>더 보기</button>
         </div>
@@ -379,14 +382,21 @@
       <div class="credit-mark">피트니스 박부장</div>
       <div class="credit-sub">박찬범 트레이너 제작</div>
     </div>
-    <p class="disclaimer">
-      이 계산기의 목적은 정해진 식단을 그대로 따르게 하는 것이 아니라,
-      본인의 목표 섭취량과 음식 구성을 이해하고 스스로 조절할 수 있게 하는 것입니다.
-      계산값은 통계적 추정식(Mifflin-St Jeor)에 기반한 <b>출발점</b>이며,
-      첫 1~2주간의 실제 체중 추세와 컨디션에 따라 조정해서 쓰세요.
-      신장질환 · 당뇨 · 임신 · 수유 · 섭식장애 · 약물치료 중이라면 이 가이드보다
-      의료진과 영양사의 개별 지도를 우선하시기 바랍니다.
-    </p>
+    <div class="disclaimer">
+      <p>
+        이 계산기의 목적은 정해진 식단을 그대로 따르게 하는 것이 아닙니다.
+        본인의 목표 섭취량과 음식 구성을 이해하고, 스스로 조절할 수 있게 하는 데 있습니다.
+      </p>
+      <p>
+        계산값은 통계적 추정식(Mifflin-St Jeor)에 기반한 <b>출발점</b>입니다.
+        첫 1~2주간의 실제 체중 추세와 컨디션을 보고 조정해서 쓰세요.
+      </p>
+      <p>
+        신장질환 · 당뇨 · 임신 · 수유 · 섭식장애 · 약물치료 중이라면
+        이 가이드보다 의료진과 영양사의 개별 지도를 우선하시기 바랍니다.
+      </p>
+    </div>
+
     <p class="src">
       영양성분 출처 · 국가표준식품성분표(<a href="https://www.nics.go.kr/food/" target="_blank" rel="noopener">nics.go.kr</a>),
       USDA FoodData Central(<a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener">fdc.nal.usda.gov</a>)

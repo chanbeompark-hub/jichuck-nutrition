@@ -85,7 +85,7 @@
     tb.innerHTML = '';
 
     $('count').textContent =
-      '전체 ' + d.total + '명' + (d.rows.length !== d.total ? ' · 조건에 맞는 ' + d.rows.length + '명 표시' : '');
+      '전체 ' + d.total + '명' + (d.rows.length !== d.total ? ' · 조건에 맞는 ' + d.rows.length + '명 표시' : '');
 
     if (!d.rows.length) {
       tb.appendChild(el('tr', null,

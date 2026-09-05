@@ -37,15 +37,28 @@ body {
   color: var(--ink);
   font-family: var(--sans);
   font-size: 15px;
-  line-height: 1.65;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  /* 한글은 단어 중간에서 끊지 않는다. 대신 긴 영문·URL 은 끊어서 넘치지 않게 */
   word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
-h1, h2, h3, h4 { margin: 0; line-height: 1.3; letter-spacing: -0.02em; }
+/* 제목은 줄 길이를 고르게, 본문은 마지막 줄에 한 단어만 남지 않게 */
+h1, h2, h3, h4 {
+  margin: 0; line-height: 1.32; letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+p, li, dd, .glist, .plan-desc, .kpi-note, .food-count {
+  text-wrap: pretty;
+}
+
 p { margin: 0; }
 a { color: inherit; }
 button { font-family: inherit; }
+
+/* 여러 문단이 이어지는 덩어리의 공통 리듬 */
+.stack > p + p { margin-top: 0.7em; }
 
 .wrap { width: min(1080px, 100% - 40px); margin-inline: auto; }
 
@@ -90,7 +103,10 @@ button { font-family: inherit; }
   content: ""; height: 2px; flex: 1; background: var(--lime-line);
 }
 .hero .rule span { font-weight: 700; font-size: 15px; color: var(--ink-2); }
-.hero .lede { margin: 20px auto 0; max-width: 560px; color: var(--ink-2); font-size: 15.5px; }
+.hero .lede {
+  margin: 20px auto 0; max-width: 34em; color: var(--ink-2);
+  font-size: 15.5px; line-height: 1.75; text-wrap: balance;
+}
 .hero .byline {
   margin-top: 16px; font-size: 13px; font-weight: 600; color: var(--ink-3);
   letter-spacing: -0.01em;
@@ -98,18 +114,25 @@ button { font-family: inherit; }
 .hero .byline b { color: #6f8a24; font-weight: 800; }
 
 /* ---------- 섹션 ---------- */
-section { padding: 26px 0; }
-.sec-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+section { padding: 30px 0; }
+.sec-head {
+  display: flex; align-items: center; gap: 10px 12px;
+  margin-bottom: 18px; flex-wrap: wrap;
+}
 .sec-num {
   background: var(--ink); color: #fff; font-weight: 800; font-size: 15px;
-  padding: 5px 11px; border-radius: 8px;
+  padding: 5px 11px; border-radius: 8px; flex: none;
 }
 .sec-title {
   font-size: clamp(20px, 3.4vw, 26px); font-weight: 800;
   background: linear-gradient(transparent 62%, var(--lime-bright) 62%);
   padding: 0 6px; letter-spacing: -0.03em;
 }
-.sec-sub { font-size: 14px; color: var(--ink-3); font-weight: 600; }
+.sec-sub {
+  font-size: 13.5px; line-height: 1.5; color: var(--ink-3); font-weight: 600;
+  /* 제목 옆에 붙되, 자리가 없으면 통째로 아랫줄로 */
+  flex: 1 1 auto; min-width: 0;
+}
 
 .card {
   background: var(--card); border: 1px solid var(--line);
@@ -118,17 +141,29 @@ section { padding: 26px 0; }
 .card + .card { margin-top: 16px; }
 
 /* ---------- 시작 게이트 ---------- */
-.gate-lede { font-size: 15px; color: var(--ink-2); margin-bottom: 20px; }
+.gate-lede {
+  font-size: 15px; color: var(--ink-2); margin-bottom: 22px;
+  max-width: 40em; text-wrap: balance;
+}
 .gate-lede b { font-weight: 800; color: var(--ink); }
 
 .privacy {
-  margin-top: 20px; padding: 18px 20px; border-radius: var(--r);
+  margin-top: 22px; padding: 20px 22px; border-radius: var(--r);
   background: #fbfcf7; border: 1px solid var(--line);
 }
-.privacy h4 { font-size: 13px; font-weight: 800; color: #6f8a24; margin-bottom: 10px; }
-.privacy dl { margin: 0; display: grid; grid-template-columns: 78px 1fr; gap: 6px 14px; }
+.privacy h4 {
+  font-size: 13px; font-weight: 800; color: #6f8a24;
+  margin-bottom: 14px; letter-spacing: -0.01em;
+}
+.privacy dl {
+  margin: 0; display: grid; grid-template-columns: 80px 1fr; gap: 10px 16px;
+  align-items: baseline;
+}
 .privacy dt { font-size: 12.5px; font-weight: 800; color: var(--ink-2); }
-.privacy dd { margin: 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
+.privacy dd {
+  margin: 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.75;
+  max-width: 46em;
+}
 .privacy dd b { color: var(--ink-2); font-weight: 700; }
 
 .consent {
@@ -142,9 +177,10 @@ section { padding: 26px 0; }
 .consent b { font-weight: 800; color: var(--ink); }
 
 .gate-skip-note {
-  margin-top: 12px; font-size: 12.5px; color: var(--ink-3); line-height: 1.7;
-  max-width: 620px;
+  margin-top: 14px; font-size: 12.5px; color: var(--ink-3); line-height: 1.8;
+  max-width: 46em;
 }
+.gate-skip-note p + p { margin-top: 4px; }
 
 /* ---------- 환영 바 ---------- */
 .welcome {
@@ -256,13 +292,16 @@ details.advanced .form-grid { margin-top: 16px; }
 .macro.fat  .bar i { background: #7fa9d6; }
 
 .notice {
-  display: flex; gap: 10px; align-items: flex-start;
-  border-radius: var(--r); padding: 13px 16px; font-size: 13.5px; margin-top: 12px;
+  display: flex; gap: 11px; align-items: flex-start;
+  border-radius: var(--r); padding: 14px 17px; margin-top: 12px;
+  font-size: 13.5px; line-height: 1.75;
   background: var(--warn-bg); border: 1px solid #f3d6c8; color: #8c3d1d;
 }
+.notice + .notice { margin-top: 8px; }
 .notice.calm { background: #f2f6fa; border-color: #d8e4ef; color: #2f5478; }
 .notice b { font-weight: 800; }
-.notice .ico { font-size: 15px; line-height: 1.4; }
+.notice .ico { font-size: 15px; line-height: 1.5; flex: none; }
+.notice > div { max-width: 52em; }
 
 /* ---------- 표 ---------- */
 .table-scroll { overflow-x: auto; margin-top: 14px; -webkit-overflow-scrolling: touch; }
@@ -294,8 +333,12 @@ td.role { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
 .plan-head .tag {
   font-size: 12px; font-weight: 700; color: #6f8a24;
   background: var(--lime-soft); border-radius: 999px; padding: 3px 10px;
+  white-space: nowrap;
 }
-.plan-desc { font-size: 13.5px; color: var(--ink-3); margin-top: 4px; }
+.plan-desc {
+  font-size: 13.5px; line-height: 1.75; color: var(--ink-3);
+  margin-top: 7px; max-width: 48em;
+}
 
 .swap-row {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -316,11 +359,15 @@ td.role { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
 .meal h4 span { font-size: 12px; color: var(--ink-3); font-weight: 700; }
 .meal ul { list-style: none; margin: 0; padding: 0; }
 .meal li {
-  display: flex; justify-content: space-between; gap: 8px;
-  font-size: 13.5px; padding: 4px 0; border-bottom: 1px dotted var(--line);
+  display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+  font-size: 13.5px; line-height: 1.6; padding: 5px 0;
+  border-bottom: 1px dotted var(--line);
 }
 .meal li:last-child { border-bottom: none; }
-.meal li b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.meal li b {
+  font-weight: 700; font-variant-numeric: tabular-nums;
+  flex: none; white-space: nowrap;
+}
 
 /* ---------- 음식 검색 ---------- */
 .search-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
@@ -340,6 +387,8 @@ td.role { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
 
 /* ---------- 가이드 ---------- */
 .guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+/* 카드가 4장이라 넓은 화면에서는 3+1 로 남지 않게 2×2 로 고정 */
+@media (min-width: 820px) { .guide-grid { grid-template-columns: 1fr 1fr; } }
 .guide-card { background: #fff; border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px 24px; }
 .guide-card h3 {
   font-size: 16px; font-weight: 800; margin-bottom: 12px;
@@ -347,16 +396,22 @@ td.role { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
 }
 .guide-card h3::before { content: ""; width: 5px; height: 17px; border-radius: 3px; background: var(--lime); }
 .guide-card ul { margin: 0; padding: 0; list-style: none; }
-.guide-card li { font-size: 14px; padding: 6px 0 6px 22px; position: relative; color: var(--ink-2); }
+.guide-card li {
+  font-size: 14px; line-height: 1.75; padding: 7px 0 7px 22px;
+  position: relative; color: var(--ink-2);
+}
+.guide-card li + li { border-top: 1px dotted var(--line); }
 .guide-card li::before {
-  content: "✓"; position: absolute; left: 0; top: 6px;
+  content: "✓"; position: absolute; left: 0; top: 7px;
   color: var(--lime); font-weight: 900; font-size: 13px;
 }
 .guide-card li b { color: var(--ink); font-weight: 800; }
-.foodgroup { margin-bottom: 14px; }
-.foodgroup:last-child { margin-bottom: 0; }
+.foodgroup { padding: 9px 0; }
+.foodgroup + .foodgroup { border-top: 1px dotted var(--line); }
+.foodgroup:first-child { padding-top: 0; }
+.foodgroup:last-child { padding-bottom: 0; }
 .foodgroup .gname { font-size: 13px; font-weight: 800; color: #6f8a24; }
-.foodgroup .glist { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+.foodgroup .glist { font-size: 14px; line-height: 1.7; color: var(--ink-2); margin-top: 3px; }
 
 /* ---------- 푸터 ---------- */
 footer { margin-top: 40px; border-top: 1px solid var(--line); background: #fff; padding: 30px 0 44px; }
@@ -369,8 +424,16 @@ footer .credit-mark {
   background: linear-gradient(transparent 60%, var(--lime-bright) 60%); padding: 0 4px;
 }
 footer .credit-sub { font-size: 13px; font-weight: 700; color: var(--ink-3); }
-footer .disclaimer { font-size: 12.5px; color: var(--ink-3); line-height: 1.75; max-width: 720px; }
-footer .src { font-size: 12px; color: var(--ink-3); margin-top: 14px; }
+footer .disclaimer {
+  font-size: 12.5px; color: var(--ink-3); line-height: 1.85; max-width: 46em;
+}
+footer .disclaimer p + p { margin-top: 10px; }
+footer .disclaimer b { color: var(--ink-2); font-weight: 800; }
+footer .src {
+  font-size: 12px; color: var(--ink-3); line-height: 1.8;
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
+  max-width: 46em;
+}
 footer .src a { color: #6f8a24; }
 
 .sr-only {
@@ -378,20 +441,95 @@ footer .src a { color: #6f8a24; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* 표가 잘려 있을 때 좌우로 밀라는 안내 — 모바일에서만 보인다 */
+.scroll-hint {
+  display: none; font-size: 12px; color: var(--ink-3); font-weight: 600;
+  margin-top: 12px;
+}
+.scroll-hint::before { content: "↔ "; color: var(--lime); font-weight: 900; }
+
 /* ---------- 반응형 ---------- */
+
+/* 태블릿 — 카드 안쪽 여백만 조금 줄인다 */
+@media (max-width: 900px) {
+  .card { padding: 22px 20px; }
+  .guide-card { padding: 20px 20px; }
+}
+
+/* 모바일 */
 @media (max-width: 640px) {
+  body { font-size: 14.5px; }
+
   .wrap { width: min(1080px, 100% - 28px); }
-  .card { padding: 20px 18px; border-radius: var(--r); }
-  .hero { padding: 34px 0 20px; }
+  .card { padding: 20px 17px; border-radius: var(--r); }
+  .guide-card { padding: 19px 17px; border-radius: var(--r); }
   .topnav { display: none; }
-  .kpi-val { font-size: 24px; }
+
+  .hero { padding: 32px 0 18px; }
+  .hero .rule { max-width: 300px; }
+  .hero .lede { font-size: 14.5px; margin-top: 16px; }
+  .hero .byline { margin-top: 14px; }
+
+  section { padding: 24px 0; }
+  .sec-head { margin-bottom: 14px; }
+  /* 부제는 제목과 같은 줄에 끼우지 말고 항상 아랫줄로 */
+  .sec-sub { flex-basis: 100%; margin-top: -2px; }
+
+  .kpi { padding: 14px 16px; }
+  .kpi-val { font-size: 23px; }
+  .macro { padding: 14px 16px; }
+  .macro .g { font-size: 23px; }
+
+  /* 개인정보 안내는 라벨/내용을 위아래로 */
+  .privacy { padding: 17px 16px; }
+  .privacy dl { grid-template-columns: 1fr; gap: 3px; }
+  .privacy dt { margin-top: 9px; }
+  .privacy dt:first-child { margin-top: 0; }
+
+  .consent { padding: 13px 14px; }
+  .gate-lede { margin-bottom: 18px; }
+
+  /* 버튼은 한 줄에 하나씩, 세로로 */
   .btn { width: 100%; }
+  .actions { flex-direction: column; gap: 8px; margin-top: 18px; }
+
+  .welcome { padding: 12px 15px; gap: 8px; }
+  .welcome .who { flex-basis: 100%; }
+  .link-btn { margin-left: 0; padding: 2px 0; }
+
+  .swap-row { padding: 14px; gap: 10px; }
+  .plan-tabs { gap: 6px; }
+  .plan-tabs button { padding: 8px 14px; font-size: 13px; }
+  .plan-head h3 { font-size: 17px; }
+
+  /* 표는 글자를 조금 줄여 한 화면에 더 들어오게 */
+  table { font-size: 13px; }
+  th, td { padding: 8px 10px; }
+  .scroll-hint { display: block; }
+
+  .search-bar { gap: 12px; }
+  .search-bar .field { flex-basis: 100%; }
+  .search-bar .field[style] { flex: 1 1 100% !important; }
+
+  footer { padding: 26px 0 40px; }
+  footer .credit { padding-bottom: 14px; margin-bottom: 16px; }
+}
+
+/* 아주 좁은 화면 (아이폰 SE 등) */
+@media (max-width: 380px) {
+  .wrap { width: min(1080px, 100% - 22px); }
+  .card { padding: 17px 14px; }
+  .kpi-val { font-size: 21px; }
+  .sec-num { font-size: 14px; padding: 4px 9px; }
 }
 
 /* ---------- 인쇄 ---------- */
 @media print {
-  .topbar, .actions, .swap-row, #foodSection, .hero .lede, .plan-tabs { display: none !important; }
+  .topbar, .actions, .swap-row, #foodSection, .hero .lede, .plan-tabs,
+  .scroll-hint, .link-btn, .gate-skip-note, #gate { display: none !important; }
   body { background: #fff; font-size: 12px; }
+  /* 인쇄물에는 누구 결과인지 남기고 제작자 표기는 유지 */
+  .welcome { background: none; border: none; border-bottom: 1px solid #ccc; padding-left: 0; }
   .card, .guide-card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
   section { padding: 10px 0; }
   .plan-panel[hidden] { display: block !important; }

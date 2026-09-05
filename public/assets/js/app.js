@@ -39,6 +39,21 @@
     });
   };
 
+  // 가운뎃점이 줄 첫머리에 떨어지지 않게 앞 공백만 줄바꿈 없는 공백으로 바꾼다.
+  // ("탄수화물 · 단백질 / · 지방의" → "탄수화물 · 단백질 · / 지방의")
+  // 같은 자리에 두 번 돌려도 결과가 같아서 렌더링마다 불러도 안전하다.
+  function fixMiddots(root) {
+    if (!root) return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = walker.nextNode())) {
+      if (n.nodeValue.indexOf(' · ') < 0) continue;
+      var tag = n.parentNode && n.parentNode.nodeName;
+      if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+      n.nodeValue = n.nodeValue.replace(/ · /g, ' · ');
+    }
+  }
+
   var state = null;   // 마지막 계산 결과
   var swaps = {};     // { planId: { carb: '식품명', protein: ..., fat: ... } }
 
@@ -181,6 +196,8 @@
 
     renderWarnings(s);
     renderMealSplit(s);
+
+    fixMiddots($('results'));
 
     $('results').hidden = false;
     $('plans').hidden = false;
@@ -417,10 +434,15 @@
     t.appendChild(tb);
     scroll.appendChild(t);
     panel.appendChild(scroll);
+    panel.appendChild(el('p', 'scroll-hint', '표를 좌우로 밀면 나머지 항목이 보입니다.'));
 
-    // 축 식품이 0g 또는 아주 적은 양으로 잘렸을 때 안내
+    // 축 식품이 사실상 빠졌을 때 안내.
+    // 무게로 재면 기름(29g = 256kcal)과 밥(29g = 42kcal)을 똑같이 취급하게 되므로
+    // 하루 목표 칼로리에서 차지하는 몫으로 판단한다.
     var tiny = res.items.filter(function (it) {
-      return it.role !== '고정' && it.g < 30;
+      if (it.role === '고정') return false;
+      if (it.g === 0) return true;
+      return it.g / 100 * it.food.k < s.target * 0.05;
     });
     if (tiny.length) {
       var n = el('div', 'notice calm');
@@ -447,6 +469,7 @@
     }
 
     panel.appendChild(renderMeals(res, s));
+    fixMiddots(panel);
   }
 
   // 하루 총량을 끼니 수에 맞춰 실제로 나눠 준다
@@ -534,6 +557,7 @@
       list.length + '개 중 ' + Math.min(shown, list.length) + '개 표시 · ' +
       p + 'g(ml) 기준 값';
     $('moreBtn').hidden = list.length <= shown;
+    fixMiddots(rows);
 
     if (!list.length) {
       rows.appendChild(el('tr', null,
@@ -559,6 +583,7 @@
     });
     $('gToEat').textContent = GUIDE.toEat || '';
     $('dbCount').textContent = '음식 ' + FOODS.length + '종 · 100g(ml) 기준';
+    fixMiddots($('guide'));
   }
 
   /* ---------------------------------------------------------------- 저장 */
@@ -816,6 +841,8 @@
     $('foodQuery').addEventListener('input', function () { shown = 30; renderFoods(); });
     $('portion').addEventListener('input', renderFoods);
     $('moreBtn').addEventListener('click', function () { shown += 50; renderFoods(); });
+
+    fixMiddots(document.body);
 
     // 저장된 값이 있으면 바로 결과까지 보여 준다
     if (restored) run(false);
