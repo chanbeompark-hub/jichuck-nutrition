@@ -1,34 +1,27 @@
 {
-  // Cloudflare Workers — 정적 사이트 + /api/* 회원 기록 API
+  // Cloudflare Pages 설정 — GitHub 연결 자동 배포용
   //
-  // 처음 한 번만:
-  //   npx wrangler d1 create nutrition-guide-db      → 나온 database_id 를 아래에 붙여넣기
-  //   npx wrangler d1 execute nutrition-guide-db --remote --file=./schema.sql
-  //   npx wrangler secret put ADMIN_KEY              → 관리자 페이지 비밀번호
+  // Pages 프로젝트 이름과 아래 "name" 이 같아야 한다.
+  // 정적 파일은 public/, /api/* 는 functions/api/[[path]].js 가 처리한다.
   //
-  // 배포:  npx wrangler deploy
-  // 로컬:  npx wrangler dev
+  // 대시보드 빌드 설정
+  //   프레임워크 프리셋 : None (없음)
+  //   빌드 명령         : 비워두기 (npm run build 도 동작하도록 no-op 스크립트를 넣어 둠)
+  //   출력 디렉터리     : public  ← 아래 pages_build_output_dir 로도 지정됨
+  //
+  // 수동 배포:  npx wrangler pages deploy
+  // 로컬:      npx wrangler pages dev
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "nutrition-guide",
-  "main": "worker/index.js",
+  "name": "jichuck-nutrition",
   "compatibility_date": "2026-09-05",
+  "pages_build_output_dir": "./public",
 
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*"]
-  },
-
+  // 이 파일이 있으면 대시보드에서 설정한 바인딩 대신 여기 값이 쓰인다
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "nutrition-guide-db",
       "database_id": "bf95780a-736b-47e5-888e-d99b0244e647"
     }
-  ],
-
-  "observability": {
-    "enabled": true
-  }
+  ]
 }
