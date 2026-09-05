@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>회원 기록 — NUTRITION GUIDE 관리</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="dot">N</span> NUTRITION GUIDE</a>
+    <nav class="topnav"><a href="/">계산기로</a></nav>
+  </div>
+</header>
+
+<main class="wrap" style="padding-bottom:60px;">
+
+  <div class="hero" style="padding:40px 0 22px; text-align:left;">
+    <span class="kicker">TRAINER ONLY</span>
+    <h1 style="font-size:clamp(26px,5vw,40px);">회원 기록</h1>
+    <p class="lede" style="margin-left:0; text-align:left;">
+      계산기를 사용한 회원의 이름 · 연락처와 마지막 계산 결과입니다.
+    </p>
+  </div>
+
+  <!-- 로그인 -->
+  <section id="loginSec">
+    <form class="card" id="loginForm" style="max-width:460px;">
+      <div class="field">
+        <label for="adminKey">관리자 키</label>
+        <input type="password" id="adminKey" autocomplete="current-password" placeholder="wrangler secret 으로 지정한 값">
+        <span class="hint">이 브라우저 탭에만 기억됩니다</span>
+      </div>
+      <div id="loginError"></div>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" id="loginBtn">열기</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- 목록 -->
+  <section id="listSec" hidden>
+    <div class="card">
+      <div class="search-bar">
+        <div class="field">
+          <label for="q">이름 · 연락처 검색</label>
+          <input type="search" id="q" placeholder="예: 홍길동, 1234" autocomplete="off">
+        </div>
+        <button type="button" class="btn btn-ghost" id="reloadBtn">새로고침</button>
+        <button type="button" class="btn btn-ghost" id="csvBtn">엑셀(CSV) 내려받기</button>
+        <button type="button" class="btn btn-ghost" id="logoutBtn">잠그기</button>
+      </div>
+
+      <p class="food-count" id="count"></p>
+      <div id="listError"></div>
+
+      <div class="table-scroll">
+        <table id="rowsTable">
+          <thead>
+            <tr>
+              <th>이름</th><th>연락처</th><th>최근 계산</th><th>횟수</th>
+              <th>성별</th><th>나이</th><th>키</th><th>체중</th>
+              <th>목표</th><th>활동</th>
+              <th>목표 kcal</th><th>탄수</th><th>단백질</th><th>지방</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="disclaimer" style="margin-top:18px; font-size:12.5px; color:var(--ink-3);">
+      이 화면에는 회원의 개인정보가 표시됩니다. 공용 PC에서는 사용 후 반드시 <b>잠그기</b>를 누르세요.
+      내려받은 CSV 파일도 개인정보가 담긴 문서이므로 보관과 폐기에 주의하시기 바랍니다.
+    </p>
+  </section>
+
+</main>
+
+<script src="/assets/js/admin.js"></script>
+</body>
+</html>

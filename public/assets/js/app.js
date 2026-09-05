@@ -11,6 +11,7 @@
   var GOALS   = window.GOALS   || [];
   var GUIDE   = window.GUIDE   || {};
   var STORE   = 'ng.form.v2';
+  var MEMBER  = 'ng.member.v1';
 
   var byName = {};
   FOODS.forEach(function (f) { byName[f.n] = f; });
@@ -590,6 +591,135 @@
     return true;
   }
 
+  /* ---------------------------------------------------------------- 회원 */
+
+  var member = null;   // { id, name }
+
+  function loadMember() {
+    try {
+      var raw = localStorage.getItem(MEMBER);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      return (d && d.id && d.name) ? d : null;
+    } catch (e) { return null; }
+  }
+
+  function saveMember(m) {
+    try { localStorage.setItem(MEMBER, JSON.stringify(m)); } catch (e) { /* noop */ }
+  }
+
+  function showGate() {
+    $('gate').hidden = false;
+    $('app').hidden = true;
+    $('foodSection').hidden = true;
+  }
+
+  function showApp() {
+    $('gate').hidden = true;
+    $('app').hidden = false;
+    $('foodSection').hidden = false;
+    $('welcome').hidden = false;
+    $('welcomeName').textContent = member ? member.name : '';
+  }
+
+  function gateError(msg) {
+    var box = $('gateError');
+    box.innerHTML = '';
+    if (!msg) return;
+    var n = el('div', 'notice');
+    n.appendChild(el('span', 'ico', '⚠'));
+    n.appendChild(el('div', null, esc(msg)));
+    box.appendChild(n);
+  }
+
+  function syncNote(text, isError) {
+    var n = $('syncNote');
+    n.textContent = text || '';
+    n.className = 'sync' + (isError ? ' err' : '');
+  }
+
+  async function api(path, body, method) {
+    var res = await fetch(path, {
+      method: method || 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) { /* 본문이 JSON 이 아닐 수 있다 */ }
+    if (!res.ok || !data || !data.ok) {
+      throw new Error((data && data.error) || '서버와 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+    return data;
+  }
+
+  async function submitGate(e) {
+    e.preventDefault();
+    var name  = $('gName').value.trim();
+    var phone = $('gPhone').value.trim();
+
+    if (!name)  { gateError('이름을 입력해 주세요.'); $('gName').focus(); return; }
+    if (phone.replace(/\D/g, '').length < 9) {
+      gateError('연락처를 정확히 입력해 주세요.'); $('gPhone').focus(); return;
+    }
+    if (!$('gConsent').checked) {
+      gateError('개인정보 수집 · 이용에 동의해야 시작할 수 있습니다.'); return;
+    }
+
+    gateError('');
+    var btn = $('gateBtn');
+    btn.disabled = true;
+    btn.textContent = '등록하는 중…';
+
+    try {
+      var d = await api('/api/register', { name: name, phone: phone, consent: true });
+      member = { id: d.id, name: d.name };
+      saveMember(member);
+      showApp();
+      syncNote('');
+      $('input').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      gateError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '동의하고 시작하기';
+    }
+  }
+
+  // 계산 결과를 서버에 남긴다. 실패해도 계산기 사용은 막지 않는다.
+  async function pushResult(s) {
+    if (!member) return;
+    syncNote('저장하는 중…');
+    try {
+      await api('/api/result', {
+        id: member.id,
+        form: {
+          sex: s.form.sex, age: s.form.age, height: s.form.height, weight: s.form.weight,
+          activity: s.form.activity, goal: s.form.goal, meals: s.form.meals,
+          targetWeight: isFinite(s.form.targetWeight) ? s.form.targetWeight : null,
+          weeks: isFinite(s.form.weeks) ? s.form.weeks : null
+        },
+        result: {
+          bmr: s.bmr, tdee: s.tdee, target: s.target,
+          carb: s.carb, protein: s.protein, fat: s.fat
+        }
+      });
+      syncNote('트레이너에게 전달됨');
+    } catch (err) {
+      syncNote('저장 실패 — 계산은 그대로 쓰실 수 있습니다', true);
+    }
+  }
+
+  async function forget() {
+    if (!member) return;
+    if (!window.confirm('저장된 내 기록을 지웁니다. 계속할까요?')) return;
+    try { await api('/api/forget', { id: member.id }); } catch (e) { /* 이미 없을 수 있다 */ }
+    try {
+      localStorage.removeItem(MEMBER);
+      localStorage.removeItem(STORE);
+    } catch (e) { /* noop */ }
+    window.location.reload();
+  }
+
   /* ---------------------------------------------------------------- 실행 */
 
   function run(scroll) {
@@ -614,6 +744,7 @@
     renderPlans(state);
     if (scroll) {
       $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      pushResult(state);
     }
   }
 
@@ -622,6 +753,12 @@
     renderGuide();
     renderChips();
     renderFoods();
+
+    member = loadMember();
+    if (member) { showApp(); } else { showGate(); }
+
+    $('gateForm').addEventListener('submit', submitGate);
+    $('forgetBtn').addEventListener('click', forget);
 
     var restored = load();
 

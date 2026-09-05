@@ -46,6 +46,64 @@
     <p class="byline">피트니스 박부장 <b>박찬범 트레이너</b> 제작</p>
   </div>
 
+  <!-- ================= 00 시작하기 ================= -->
+  <section id="gate" class="wrap" hidden>
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <h2 class="sec-title">시작하기</h2>
+    </div>
+
+    <form class="card" id="gateForm" novalidate>
+      <p class="gate-lede">
+        계산 결과를 트레이너가 확인하고 상담에 이어 쓰기 위해,
+        시작 전에 <b>이름과 연락처</b>를 받고 있습니다.
+      </p>
+
+      <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="field">
+          <label for="gName">이름</label>
+          <input type="text" id="gName" maxlength="40" autocomplete="name" placeholder="홍길동" required>
+        </div>
+        <div class="field">
+          <label for="gPhone">연락처</label>
+          <input type="tel" id="gPhone" maxlength="20" autocomplete="tel" inputmode="tel" placeholder="010-1234-5678" required>
+        </div>
+      </div>
+
+      <div class="privacy">
+        <h4>개인정보 수집 · 이용 안내</h4>
+        <dl>
+          <dt>수집 항목</dt><dd>이름, 연락처, 입력한 신체 정보와 계산 결과</dd>
+          <dt>이용 목적</dt><dd>식단 상담과 회원 관리</dd>
+          <dt>보관 기간</dt><dd>회원 관리 종료 시까지. 아래 <b>내 기록 삭제</b>를 누르면 즉시 지워집니다</dd>
+          <dt>동의 거부</dt><dd>동의하지 않아도 됩니다. 다만 이 경우 계산기를 이용할 수 없습니다</dd>
+        </dl>
+      </div>
+
+      <label class="consent">
+        <input type="checkbox" id="gConsent">
+        <span>위 내용을 확인했고, 개인정보 수집 · 이용에 <b>동의합니다</b>.</span>
+      </label>
+
+      <div id="gateError"></div>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" id="gateBtn">동의하고 시작하기</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ================= 계산기 본문 ================= -->
+  <div id="app" hidden>
+
+  <div class="wrap">
+    <div class="welcome" id="welcome" hidden>
+      <span class="who"><b id="welcomeName"></b> 님, 반갑습니다</span>
+      <span class="sync" id="syncNote"></span>
+      <button type="button" class="link-btn" id="forgetBtn">내 기록 삭제</button>
+    </div>
+  </div>
+
   <!-- ================= 01 입력 ================= -->
   <section id="input" class="wrap">
     <div class="sec-head">
@@ -228,6 +286,8 @@
       <div id="planPanels"></div>
     </div>
   </section>
+
+  </div><!-- /#app -->
 
   <!-- ================= 04 음식 찾기 ================= -->
   <section id="foodSection">

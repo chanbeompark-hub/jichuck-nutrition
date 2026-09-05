@@ -4,8 +4,14 @@
   X-Frame-Options: SAMEORIGIN
   Permissions-Policy: geolocation=(), microphone=(), camera=()
 
+# 파일명에 버전이 붙어 있지 않으므로 캐시를 짧게 잡는다.
+# 배포 직후 회원 브라우저에 바로 반영되도록 5분 + 재검증.
 /assets/*
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=300, must-revalidate
 
 /data/*
-  Cache-Control: public, max-age=86400
+  Cache-Control: public, max-age=300, must-revalidate
+
+/admin.html
+  Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow

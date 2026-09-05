@@ -1,14 +1,33 @@
 {
-  // Cloudflare Workers (정적 사이트 호스팅) 설정
+  // Cloudflare Workers — 정적 사이트 + /api/* 회원 기록 API
+  //
+  // 처음 한 번만:
+  //   npx wrangler d1 create nutrition-guide-db      → 나온 database_id 를 아래에 붙여넣기
+  //   npx wrangler d1 execute nutrition-guide-db --remote --file=./schema.sql
+  //   npx wrangler secret put ADMIN_KEY              → 관리자 페이지 비밀번호
+  //
   // 배포:  npx wrangler deploy
   // 로컬:  npx wrangler dev
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nutrition-guide",
+  "main": "worker/index.js",
   "compatibility_date": "2026-09-05",
+
   "assets": {
     "directory": "./public",
-    "not_found_handling": "404-page"
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
   },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nutrition-guide-db",
+      "database_id": "PUT-YOUR-DATABASE-ID-HERE"
+    }
+  ],
+
   "observability": {
     "enabled": true
   }

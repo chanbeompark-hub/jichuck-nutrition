@@ -16,18 +16,24 @@ Cloudflare Workers 정적 호스팅으로 배포합니다.
 ## 폴더 구조
 
 ```
-public/
-  index.html              # 사이트 전체 (원페이지)
+public/                   # 정적 파일 (Cloudflare 가 직접 서빙)
+  index.html              # 계산기 본문
+  admin.html              # 트레이너용 회원 기록 조회
   404.html
   robots.txt
   sitemap.xml
+  _headers                # 보안 헤더 · 캐시 정책
   assets/
     css/style.css         # 전체 스타일
-    js/app.js             # 계산 엔진 · 식단 설계 · 음식 검색
+    js/app.js             # 계산 엔진 · 식단 설계 · 음식 검색 · 회원 등록
+    js/admin.js           # 관리자 화면
     favicon.svg
   data/
     foods.js              # 음식 DB 181종 (여기만 고치면 값이 바뀜)
     plans.js              # 활동계수 · 목표별 조정값 · 식단 3안 · 가이드 문구
+worker/
+  index.js                # /api/* 만 처리하는 Worker
+schema.sql                # D1 테이블 정의
 wrangler.jsonc            # Cloudflare 배포 설정
 ```
 
@@ -95,20 +101,60 @@ wrangler.jsonc            # Cloudflare 배포 설정
 
 ---
 
-## 개인정보
+## 회원 기록 (D1)
 
-입력값은 **브라우저 localStorage 에만** 저장되고 서버로 전송되지 않습니다.
-백엔드도 데이터베이스도 없습니다. `처음 값으로` 버튼을 누르면 저장된 값이 지워집니다.
+계산기를 쓰기 전에 **이름 · 연락처 · 개인정보 동의**를 받고, 계산할 때마다
+그 회원의 마지막 입력값과 결과를 Cloudflare D1 에 남깁니다.
+트레이너는 `/admin.html` 에서 전체 명단을 보고 CSV 로 내려받을 수 있습니다.
+
+### API
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/register` | 이름 · 연락처 · 동의 저장, 회원 id 발급 |
+| POST | `/api/result` | 마지막 계산 결과 갱신 (`calc_count` 증가) |
+| POST | `/api/forget` | 회원 본인이 자기 기록 삭제 |
+| GET | `/api/admin/list` | 명단 조회 — `X-Admin-Key` 헤더 필요 |
+| GET | `/api/admin/csv` | CSV 내려받기 — `X-Admin-Key` 헤더 필요 |
+| DELETE | `/api/admin/row` | 한 건 삭제 — `X-Admin-Key` 헤더 필요 |
+
+회원 한 명당 **행 하나**입니다. 다시 계산해도 행이 늘지 않고 마지막 값으로 덮어씁니다.
+
+### 개인정보 처리
+
+- 시작 화면에 수집 항목 · 목적 · 보관 기간을 표시하고, **동의 체크 없이는 진행되지 않습니다**
+- 회원은 언제든 `내 기록 삭제` 버튼으로 자기 데이터를 지울 수 있습니다 (DB에서 실제 삭제)
+- 관리자 키는 코드에 없고 Cloudflare secret 으로만 존재합니다
+- `admin.html` 은 `robots.txt` 와 `X-Robots-Tag` 로 검색 제외 처리했습니다
+- 관리자 키는 `sessionStorage` 에만 있어 탭을 닫으면 사라집니다
 
 ---
 
-## 로컬에서 보기
+## 처음 한 번만 하는 준비
+
+### 1. D1 데이터베이스 만들기
 
 ```bash
-npx wrangler dev --config nutrition-planner/wrangler.jsonc --port 8789
+npx wrangler d1 create nutrition-guide-db
 ```
 
-`http://localhost:8789` 로 열립니다.
+출력에 나오는 `database_id` 를 `wrangler.jsonc` 의
+`PUT-YOUR-DATABASE-ID-HERE` 자리에 붙여넣습니다.
+
+### 2. 테이블 만들기
+
+```bash
+npx wrangler d1 execute nutrition-guide-db --remote --file=./schema.sql
+```
+
+### 3. 관리자 키 지정
+
+```bash
+npx wrangler secret put ADMIN_KEY
+```
+
+물어보면 원하는 비밀번호를 입력합니다. 이 값이 `/admin.html` 의 비밀번호가 됩니다.
+**길고 추측하기 어려운 값으로 정하세요.** 이 키 하나로 전 회원 개인정보가 열립니다.
 
 ---
 
@@ -118,11 +164,52 @@ npx wrangler dev --config nutrition-planner/wrangler.jsonc --port 8789
 npx wrangler deploy
 ```
 
-`wrangler.jsonc` 의 `name` 이 `nutrition-guide` 이므로
 `https://nutrition-guide.<계정>.workers.dev` 로 올라갑니다.
-
-배포 후 `public/robots.txt` 와 `public/sitemap.xml`, `index.html` 의 `canonical`
+배포 후 `public/robots.txt` · `public/sitemap.xml` · `index.html` 의 `canonical`
 주소를 실제 도메인으로 바꿔 주세요.
+
+설정이 맞는지만 확인하려면 (업로드 없이):
+
+```bash
+npx wrangler deploy --dry-run
+```
+
+---
+
+## 로컬에서 보기
+
+로컬은 별도의 SQLite 파일을 쓰므로 실서비스 데이터에 영향을 주지 않습니다.
+
+```bash
+npx wrangler d1 execute nutrition-guide-db --local --file=./schema.sql
+```
+
+`.dev.vars` 파일에 관리자 키를 넣고 (이 파일은 git 에 올라가지 않습니다):
+
+```
+ADMIN_KEY=아무거나
+```
+
+```bash
+npx wrangler dev --port 8789
+```
+
+`http://localhost:8789` 로 열립니다.
+
+> JS·CSS 를 고쳤는데 화면이 안 바뀌면 캐시입니다. `Ctrl+Shift+R` 로 강제 새로고침하세요.
+
+---
+
+## 무료 한도
+
+Cloudflare 무료 플랜 기준입니다. 체육관 규모에서는 넘길 일이 없습니다.
+
+| 항목 | 무료 한도 |
+|---|---|
+| Workers 요청 | 100,000회 / 일 |
+| D1 쓰기 | 100,000행 / 일 |
+| D1 읽기 | 5,000,000행 / 일 |
+| D1 저장용량 | 5 GB |
 
 ---
 
@@ -135,6 +222,8 @@ npx wrangler deploy
 | 식단 3안의 구성 식품과 고정 량 | `public/data/plans.js` (`PLANS`) |
 | 가이드 문구 · 체크리스트 | `public/data/plans.js` (`GUIDE`) |
 | 경고 기준 (칼로리 하한 등) | `public/assets/js/app.js` 의 `renderWarnings` |
+| 개인정보 안내 문구 | `public/index.html` 의 `.privacy` 블록 |
+| 관리자 화면 항목 | `public/admin.html` · `public/assets/js/admin.js` |
 
 ---
 
