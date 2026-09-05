@@ -12,6 +12,11 @@
 /data/*
   Cache-Control: public, max-age=300, must-revalidate
 
+# Cloudflare 는 /admin.html 을 /admin 으로 정규화하므로 두 경로 모두 지정한다
+/admin
+  Cache-Control: no-store
+  X-Robots-Tag: noindex, nofollow
+
 /admin.html
   Cache-Control: no-store
   X-Robots-Tag: noindex, nofollow
