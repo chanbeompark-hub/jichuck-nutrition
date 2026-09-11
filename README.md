@@ -8,7 +8,8 @@
 Cloudflare Pages 로 배포하며, GitHub 에 푸시하면 자동 배포됩니다.
 
 **배포 주소** — https://jichuck-nutrition.pages.dev
-**트레이너용 회원 기록** — https://jichuck-nutrition.pages.dev/admin
+**트레이너용 회원 기록 (칼로리 계산기)** — https://jichuck-nutrition.pages.dev/admin
+**체성분 변화 기록** — https://jichuck-nutrition.pages.dev/tracker
 
 원본은 `회원_식단_자동설계_통합관리_음식DB_150개확장.xlsx` 이며,
 그 파일의 계산 로직(회원설정 · 자동식단설계 · 자동식단3안 · 영양가이드 시트)과
@@ -22,6 +23,7 @@ Cloudflare Pages 로 배포하며, GitHub 에 푸시하면 자동 배포됩니�
 public/                   # 정적 파일 (Cloudflare 가 직접 서빙)
   index.html              # 계산기 본문
   admin.html              # 트레이너용 회원 기록 조회 (주소는 /admin)
+  tracker.html            # 체성분 변화 기록 (주소는 /tracker)
   404.html
   robots.txt
   sitemap.xml
@@ -29,7 +31,8 @@ public/                   # 정적 파일 (Cloudflare 가 직접 서빙)
   assets/
     css/style.css         # 전체 스타일
     js/app.js             # 계산 엔진 · 식단 설계 · 음식 검색 · 회원 등록
-    js/admin.js           # 관리자 화면
+    js/admin.js            # 관리자 화면 (칼로리 계산기 명단)
+    js/tracker.js          # 체성분 변화 기록 화면 (로그인 · 그래프 · 관리자 명단)
     favicon.svg
   data/
     foods.js              # 음식 DB 181종 (여기만 고치면 값이 바뀜)
@@ -38,8 +41,8 @@ functions/
   api/[[path]].js         # Pages 가 /api/* 를 여기로 보냄 → worker 로 위임
 worker/
   index.js                # API 처리 본체 (고칠 곳은 여기 한 곳)
-schema.sql                # D1 테이블 정의
-wrangler.jsonc            # Cloudflare 배포 설정
+schema.sql                # D1 테이블 정의 (칼로리 계산기 + 체성분 기록)
+wrangler.jsonc             # Cloudflare 배포 설정
 ```
 
 ---
@@ -147,6 +150,70 @@ wrangler.jsonc            # Cloudflare 배포 설정
 
 ---
 
+## PT 체성분 변화 기록 (`/tracker`)
+
+회원이 체중과 인바디 측정값(체지방률 · 골격근량)을 기록하면 그래프로 변화를 보여주고,
+트레이너는 전체 회원을 한 화면에서 봅니다. 칼로리 계산기와는 별개 기능이지만 서로 연결돼 있습니다 —
+기록 화면의 **이 체중으로 식단 계산하기** 를 누르면 최근 키·체중이 채워진 채로 계산기가 열립니다.
+
+### 회원 로그인 — 이름 + 전화번호 뒷 4자리
+
+회원가입 절차 없이 이름과 뒷 4자리로 들어옵니다. 처음이면 로그인 시도 후 바로 등록 화면이 뜨고,
+**개인정보 · 건강정보(체성분) 수집 동의**를 체크해야 등록됩니다.
+
+편한 대신 약한 방식이라, 그 주변을 이렇게 막아 두었습니다.
+
+| 막는 것 | 방법 |
+|---|---|
+| 이름·번호로 남의 기록 id 를 계산하기 | 회원 id 는 무작위 UUID. 이름·번호와 무관 |
+| 로그인 없이 남의 기록 보기 · 쓰기 · 지우기 | 로그인하면 무작위 세션 토큰 발급. 모든 조회·기록·삭제는 토큰으로만 |
+| DB 가 새면 세션까지 새는 것 | DB 에는 토큰의 SHA-256 해시만 저장 |
+| 뒷 4자리 대입 | 이름 당 틀린 시도 1시간 30회, IP 당 15분 100회로 제한 |
+| 대량 가짜 가입 | IP 당 등록 1시간 60회 |
+
+**남는 한계** — 이름과 뒷 4자리를 실제로 아는 사람은 그 회원으로 들어올 수 있습니다.
+이 방식의 본질적인 한계이며, 그래서 메모에 민감한 내용은 남기지 않도록 화면에 안내합니다.
+
+IP 제한이 넉넉한 이유: 체육관 와이파이는 회원 전원이 같은 IP 이고, 신규 회원은 첫 로그인이
+'없음'으로 집계됩니다. IP 를 빡빡하게 잡으면 가입이 몰리는 날 체육관 전체가 잠깁니다.
+한 사람을 지키는 건 이름 단위 제한이 합니다.
+
+### 트레이너 화면
+
+로그인 카드 아래 **관리자 키로 들어가기** 를 눌러, 칼로리 계산기 `/admin` 과 **같은 ADMIN_KEY** 를 입력합니다.
+별도 계정은 없습니다. 키는 그 탭에만 기억되고 탭을 닫으면 잠깁니다.
+
+- 전체 회원 목록 (이름 · 뒷 4자리 검색), 줄을 누르면 그래프와 전체 기록
+- 기록 한 건 삭제, 회원 전체 삭제
+- **기록 추가** 탭 — 인바디 측정 후 그 자리에서 회원 대신 입력.
+  처음 등록하는 회원이면 "동의를 받았다"는 확인란을 체크해야 저장됩니다
+- 트레이너가 입력한 기록은 표에 `T` 표시가 붙습니다
+
+### API
+
+| 메서드 | 경로 | 인증 | 설명 |
+|---|---|---|---|
+| POST | `/api/pt/login` | — | 이름 + 뒷 4자리 → 세션 토큰. 없으면 `code: not_found` |
+| POST | `/api/pt/register` | — | 처음 등록 (`consent: true` 필수) → 세션 토큰 |
+| POST | `/api/pt/logout` | Bearer | 세션 삭제 |
+| GET | `/api/pt/me` | Bearer | 내 기록 |
+| POST | `/api/pt/entry` | Bearer | 내 기록 추가 |
+| DELETE | `/api/pt/entry` | Bearer | 내 기록 한 건 삭제 (남의 기록 id 는 0건 처리) |
+| POST | `/api/pt/forget` | Bearer | 내 기록 전체 삭제 |
+| GET | `/api/pt/admin/list` | X-Admin-Key | 전체 회원 |
+| GET | `/api/pt/admin/member` | X-Admin-Key | 회원 한 명 상세 (`?id=`) |
+| POST | `/api/pt/admin/entry` | X-Admin-Key | 회원 대신 기록 (신규면 `consentConfirmed: true` 필요) |
+| DELETE | `/api/pt/admin/entry` | X-Admin-Key | 기록 한 건 삭제 |
+| DELETE | `/api/pt/admin/member` | X-Admin-Key | 회원 전체 삭제 |
+
+### 데이터 (D1)
+
+`schema.sql` 의 `pt_members` · `pt_entries` · `pt_sessions` · `pt_attempts` 네 테이블.
+칼로리 계산기의 `members` 테이블과는 완전히 분리돼 있습니다.
+측정일은 한국 시간 기준이며, 오늘보다 뒤의 날짜는 받지 않습니다.
+
+---
+
 ## 처음 한 번만 하는 준비 (이미 완료됨)
 
 ### 1. D1 데이터베이스 만들기
@@ -165,6 +232,10 @@ npx wrangler d1 create nutrition-guide-db
 npx wrangler d1 execute nutrition-guide-db --remote --file=./schema.sql
 ```
 
+`CREATE TABLE IF NOT EXISTS` 로 돼 있어 이미 있는 테이블은 건드리지 않고
+새로 추가된 테이블(예: `pt_members`, `pt_entries`)만 만듭니다. 스키마를 고친 뒤에는
+이 명령을 다시 실행하면 됩니다.
+
 ### 3. 관리자 키 지정
 
 ```bash
@@ -173,6 +244,8 @@ npx wrangler pages secret put ADMIN_KEY --project-name jichuck-nutrition
 
 물어보면 원하는 비밀번호를 입력합니다. 이 값이 `/admin` 의 비밀번호가 됩니다.
 **길고 추측하기 어려운 값으로 정하세요.** 이 키 하나로 전 회원 개인정보가 열립니다.
+
+(`/tracker` 의 트레이너 화면도 이 같은 키로 엽니다.)
 
 ---
 
@@ -288,7 +361,9 @@ Cloudflare 무료 플랜 기준입니다. 체육관 규모에서는 넘길 일�
 | 가이드 문구 · 체크리스트 | `public/data/plans.js` (`GUIDE`) |
 | 경고 기준 (칼로리 하한 등) | `public/assets/js/app.js` 의 `renderWarnings` |
 | 개인정보 안내 문구 | `public/index.html` 의 `.privacy` 블록 |
-| 관리자 화면 항목 | `public/admin.html` · `public/assets/js/admin.js` |
+| 관리자 화면 항목 (칼로리 계산기) | `public/admin.html` · `public/assets/js/admin.js` |
+| 체성분 기록 화면 | `public/tracker.html` · `public/assets/js/tracker.js` |
+| 로그인 시도 제한 횟수 | `worker/index.js` 의 `PT_LIMITS` |
 
 ---
 

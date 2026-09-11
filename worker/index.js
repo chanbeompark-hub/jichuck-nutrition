@@ -10,6 +10,20 @@
  *   GET  /api/admin/list   전체 조회      (X-Admin-Key 필요)
  *   GET  /api/admin/csv    CSV 내려받기   (X-Admin-Key 필요)
  *   DELETE /api/admin/row  한 건 삭제     (X-Admin-Key 필요)
+ *
+ *   ---- PT샵 체성분 변화 기록 (/tracker) ----
+ *   POST   /api/pt/login           이름 + 뒷 4자리로 로그인 → 세션 토큰 발급
+ *   POST   /api/pt/register        처음 등록 (동의 필수) → 세션 토큰 발급
+ *   POST   /api/pt/logout          세션 종료
+ *   GET    /api/pt/me              내 기록 조회                (Bearer 토큰)
+ *   POST   /api/pt/entry           내 기록 추가                (Bearer 토큰)
+ *   DELETE /api/pt/entry           내 기록 한 건 삭제          (Bearer 토큰)
+ *   POST   /api/pt/forget          내 기록 전체 삭제           (Bearer 토큰)
+ *   GET    /api/pt/admin/list      전체 회원 목록              (X-Admin-Key)
+ *   GET    /api/pt/admin/member    회원 한 명 상세             (X-Admin-Key)
+ *   POST   /api/pt/admin/entry     회원 대신 기록 입력         (X-Admin-Key)
+ *   DELETE /api/pt/admin/entry     기록 한 건 삭제             (X-Admin-Key)
+ *   DELETE /api/pt/admin/member    회원 전체 삭제              (X-Admin-Key)
  */
 
 const JSON_HEADERS = {
@@ -284,6 +298,412 @@ async function handleAdminDelete(request, env) {
   return json({ ok: true, deleted: res.meta ? res.meta.changes : 0 });
 }
 
+/* ------------------------------------------------------------------ PT샵 체성분 변화 기록 */
+
+// 로그인은 "이름 + 전화번호 뒷 4자리"로 회원을 찾기만 한다.
+// 찾은 뒤에는 무작위 세션 토큰을 발급하고, 조회·기록·삭제는 전부 그 토큰으로만 허용한다.
+// 회원 id 는 무작위 UUID 라 이름/번호로 역산할 수 없다.
+
+var PT_SESSION_DAYS = 90;
+
+// 한 사람의 뒷 4자리를 맞히려면 평균 5,000번을 시도해야 한다.
+// 이름 단위 제한(1시간 30회)이 그걸 몇 주 단위로 늘려 한 사람을 지킨다.
+// IP 제한은 여러 이름을 훑는 걸 늦추는 용도라 넉넉하게 둔다 —
+// 체육관 와이파이는 회원 전원이 같은 IP 이고, 신규 회원은 첫 로그인이 '없음'으로 집계되기 때문.
+var PT_LIMITS = {
+  nameFail: { max: 30,  windowMs: 60 * 60 * 1000 },  // 이름 당 틀린 로그인: 1시간에 30회
+  ipFail:   { max: 100, windowMs: 15 * 60 * 1000 },  // IP 당 틀린 로그인: 15분에 100회
+  register: { max: 60,  windowMs: 60 * 60 * 1000 }   // IP 당 신규 등록: 1시간에 60회
+};
+
+var PT_NEED_LOGIN = '로그인이 만료됐어요. 다시 로그인해 주세요.';
+
+function ptNameKey(name) {
+  return name.replace(/\s+/g, '').toLowerCase();
+}
+
+function cleanPhone4(v) {
+  var s = String(v == null ? '' : v).trim();
+  return /^[0-9]{4}$/.test(s) ? s : null;
+}
+
+function clientIp(request) {
+  return request.headers.get('CF-Connecting-IP') || 'local';
+}
+
+function toHex(bytes) {
+  var out = '';
+  for (var i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, '0');
+  return out;
+}
+
+function randomToken() {
+  var b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return toHex(b);
+}
+
+async function sha256hex(s) {
+  var d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return toHex(new Uint8Array(d));
+}
+
+// 한국 시간 기준 오늘 (YYYY-MM-DD)
+function kstToday() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function ptRound1(x) {
+  return x == null ? null : Math.round(x * 10) / 10;
+}
+
+function ptBmi(height, weight) {
+  if (!height || !weight) return null;
+  var m = height / 100;
+  return ptRound1(weight / (m * m));
+}
+
+/* ---- 시도 횟수 제한 ---- */
+
+async function rateBlocked(env, bucket, limit) {
+  var row = await env.DB.prepare('SELECT count, reset_at FROM pt_attempts WHERE bucket = ?1')
+    .bind(bucket).first();
+  if (!row || row.reset_at < Date.now()) return false;
+  return row.count >= limit.max;
+}
+
+async function rateHit(env, bucket, limit) {
+  var now = Date.now();
+  await env.DB.prepare(
+    'INSERT INTO pt_attempts (bucket, count, reset_at) VALUES (?1, 1, ?2) ' +
+    'ON CONFLICT(bucket) DO UPDATE SET ' +
+    ' count    = CASE WHEN reset_at < ?3 THEN 1  ELSE count + 1 END,' +
+    ' reset_at = CASE WHEN reset_at < ?3 THEN ?2 ELSE reset_at  END'
+  ).bind(bucket, now + limit.windowMs, now).run();
+}
+
+/* ---- 세션 ---- */
+
+async function ptIssueSession(env, memberId) {
+  var token = randomToken();
+  var now = new Date();
+  var exp = new Date(now.getTime() + PT_SESSION_DAYS * 86400000);
+  await env.DB.prepare(
+    'INSERT INTO pt_sessions (token_hash, member_id, created_at, expires_at) VALUES (?1, ?2, ?3, ?4)'
+  ).bind(await sha256hex(token), memberId, now.toISOString(), exp.toISOString()).run();
+  return token;
+}
+
+function bearerToken(request) {
+  var m = /^Bearer ([0-9a-f]{64})$/.exec(request.headers.get('Authorization') || '');
+  return m ? m[1] : null;
+}
+
+// Authorization: Bearer <토큰> → 회원. 없거나 만료면 null
+async function ptAuth(request, env) {
+  var token = bearerToken(request);
+  if (!token) return null;
+  return await env.DB.prepare(
+    'SELECT m.id, m.name, m.phone4 FROM pt_sessions s JOIN pt_members m ON m.id = s.member_id ' +
+    'WHERE s.token_hash = ?1 AND s.expires_at > ?2'
+  ).bind(await sha256hex(token), new Date().toISOString()).first();
+}
+
+/* ---- 기록 값 검증 (회원·트레이너 공용) ---- */
+
+function ptParseEntry(body) {
+  var height = n(body.height, 100, 230);
+  var weight = n(body.weight, 20, 250);
+  if (height == null) return { error: '키를 100~230cm 사이로 입력해 주세요.' };
+  if (weight == null) return { error: '체중을 20~250kg 사이로 입력해 주세요.' };
+
+  var blank = function (v) { return v === '' || v == null; };
+  var bodyFat = blank(body.bodyFat) ? null : n(body.bodyFat, 1, 70);
+  var muscle  = blank(body.muscle)  ? null : n(body.muscle, 5, 100);
+  if (!blank(body.bodyFat) && bodyFat == null) return { error: '체지방률을 1~70% 사이로 입력해 주세요.' };
+  if (!blank(body.muscle)  && muscle  == null) return { error: '골격근량을 5~100kg 사이로 입력해 주세요.' };
+
+  var today = kstToday();
+  var date = String(body.measuredAt || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(Date.parse(date))) date = today;
+  if (date > today) return { error: '측정일이 오늘보다 뒤일 수 없어요.' };
+  if (date < '2000-01-01') return { error: '측정일을 확인해 주세요.' };
+
+  return {
+    height: height, weight: weight, bodyFat: bodyFat, muscle: muscle,
+    bmi: ptBmi(height, weight),
+    memo: String(body.memo == null ? '' : body.memo).trim().slice(0, 60),
+    measuredAt: date
+  };
+}
+
+async function ptInsertEntry(env, memberId, e, by) {
+  var id = crypto.randomUUID();
+  var now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(
+      'INSERT INTO pt_entries (id, member_id, measured_at, height, weight, body_fat_pct, skeletal_muscle, bmi, memo, created_by, created_at) ' +
+      'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)'
+    ).bind(id, memberId, e.measuredAt, e.height, e.weight, e.bodyFat, e.muscle, e.bmi, e.memo, by, now),
+    env.DB.prepare('UPDATE pt_members SET updated_at = ?2 WHERE id = ?1').bind(memberId, now)
+  ]);
+  return id;
+}
+
+var PT_ENTRY_COLUMNS =
+  'id, measured_at, height, weight, body_fat_pct, skeletal_muscle, bmi, memo, created_by';
+
+async function ptEntriesOf(env, memberId) {
+  var out = await env.DB.prepare(
+    'SELECT ' + PT_ENTRY_COLUMNS + ' FROM pt_entries WHERE member_id = ?1 ORDER BY measured_at ASC, created_at ASC'
+  ).bind(memberId).all();
+  return out.results || [];
+}
+
+function ptDeleteMemberStmts(env, memberId) {
+  return [
+    env.DB.prepare('DELETE FROM pt_entries  WHERE member_id = ?1').bind(memberId),
+    env.DB.prepare('DELETE FROM pt_sessions WHERE member_id = ?1').bind(memberId),
+    env.DB.prepare('DELETE FROM pt_members  WHERE id = ?1').bind(memberId)
+  ];
+}
+
+/* ---- 회원용 ---- */
+
+async function handlePtLogin(request, env) {
+  var body = await readJson(request);
+  if (!body) return bad('요청 형식이 올바르지 않습니다.');
+
+  var name = cleanName(body.name);
+  var phone4 = cleanPhone4(body.phone4);
+  if (!name) return bad('이름을 확인해 주세요.');
+  if (!phone4) return bad('전화번호 뒷 4자리(숫자 4자리)를 확인해 주세요.');
+
+  var nameKey = ptNameKey(name);
+  var ipBucket = 'ip:' + clientIp(request);
+  var nameBucket = 'name:' + nameKey;
+
+  if (await rateBlocked(env, ipBucket, PT_LIMITS.ipFail) ||
+      await rateBlocked(env, nameBucket, PT_LIMITS.nameFail)) {
+    return bad('로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요.', 429);
+  }
+
+  var member = await env.DB.prepare(
+    'SELECT id, name FROM pt_members WHERE name_key = ?1 AND phone4 = ?2'
+  ).bind(nameKey, phone4).first();
+
+  if (!member) {
+    await rateHit(env, ipBucket, PT_LIMITS.ipFail);
+    await rateHit(env, nameBucket, PT_LIMITS.nameFail);
+    return json({ ok: false, code: 'not_found', error: '이 이름과 번호로 등록된 기록이 없어요.' }, 404);
+  }
+
+  var token = await ptIssueSession(env, member.id);
+  return json({ ok: true, token: token, name: member.name });
+}
+
+async function handlePtRegister(request, env) {
+  var body = await readJson(request);
+  if (!body) return bad('요청 형식이 올바르지 않습니다.');
+
+  var name = cleanName(body.name);
+  var phone4 = cleanPhone4(body.phone4);
+  if (!name) return bad('이름을 확인해 주세요.');
+  if (!phone4) return bad('전화번호 뒷 4자리(숫자 4자리)를 확인해 주세요.');
+  if (body.consent !== true) return bad('개인정보·건강정보 수집에 동의해야 등록할 수 있어요.');
+
+  var regBucket = 'reg:' + clientIp(request);
+  if (await rateBlocked(env, regBucket, PT_LIMITS.register)) {
+    return bad('등록 시도가 너무 많아요. 잠시 후 다시 시도해 주세요.', 429);
+  }
+  await rateHit(env, regBucket, PT_LIMITS.register);
+
+  var nameKey = ptNameKey(name);
+  var exists = await env.DB.prepare(
+    'SELECT id FROM pt_members WHERE name_key = ?1 AND phone4 = ?2'
+  ).bind(nameKey, phone4).first();
+  if (exists) return bad('이미 등록된 이름과 번호예요. 로그인해 주세요.', 409);
+
+  var id = crypto.randomUUID();
+  var now = new Date().toISOString();
+  try {
+    await env.DB.prepare(
+      'INSERT INTO pt_members (id, name, name_key, phone4, consent_at, created_by, created_at, updated_at) ' +
+      'VALUES (?1, ?2, ?3, ?4, ?5, \'self\', ?5, ?5)'
+    ).bind(id, name, nameKey, phone4, now).run();
+  } catch (err) {
+    // 동시에 같은 이름/번호로 등록한 경우 UNIQUE 인덱스가 막아 준다
+    return bad('이미 등록된 이름과 번호예요. 로그인해 주세요.', 409);
+  }
+
+  var token = await ptIssueSession(env, id);
+  return json({ ok: true, token: token, name: name });
+}
+
+async function handlePtMe(request, env) {
+  var me = await ptAuth(request, env);
+  if (!me) return bad(PT_NEED_LOGIN, 401);
+  return json({ ok: true, name: me.name, phone4: me.phone4, entries: await ptEntriesOf(env, me.id) });
+}
+
+async function handlePtEntryAdd(request, env) {
+  var me = await ptAuth(request, env);
+  if (!me) return bad(PT_NEED_LOGIN, 401);
+
+  var body = await readJson(request);
+  if (!body) return bad('요청 형식이 올바르지 않습니다.');
+  var e = ptParseEntry(body);
+  if (e.error) return bad(e.error);
+
+  var id = await ptInsertEntry(env, me.id, e, 'self');
+  return json({ ok: true, id: id, bmi: e.bmi });
+}
+
+async function handlePtEntryDelete(request, env) {
+  var me = await ptAuth(request, env);
+  if (!me) return bad(PT_NEED_LOGIN, 401);
+
+  var body = await readJson(request);
+  var entryId = body ? cleanId(body.entryId) : null;
+  if (!entryId) return bad('삭제할 기록을 찾을 수 없어요.');
+
+  // 본인 기록만 지워진다 — 남의 기록 id 를 넣어도 member_id 가 달라 0건
+  var res = await env.DB.prepare('DELETE FROM pt_entries WHERE id = ?1 AND member_id = ?2')
+    .bind(entryId, me.id).run();
+  if (!res.meta || res.meta.changes === 0) return bad('삭제할 기록을 찾을 수 없어요.', 404);
+  return json({ ok: true });
+}
+
+async function handlePtLogout(request, env) {
+  var token = bearerToken(request);
+  if (token) {
+    await env.DB.prepare('DELETE FROM pt_sessions WHERE token_hash = ?1').bind(await sha256hex(token)).run();
+  }
+  return json({ ok: true });
+}
+
+async function handlePtForget(request, env) {
+  var me = await ptAuth(request, env);
+  if (!me) return bad(PT_NEED_LOGIN, 401);
+  await env.DB.batch(ptDeleteMemberStmts(env, me.id));
+  return json({ ok: true });
+}
+
+/* ---- 트레이너용 (칼로리 계산기 /admin 과 같은 ADMIN_KEY) ---- */
+
+async function handlePtAdminList(request, env) {
+  var denied = requireAdmin(request, env);
+  if (denied) return denied;
+
+  var q = (new URL(request.url).searchParams.get('q') || '').trim();
+  var LAST  = 'FROM pt_entries e WHERE e.member_id = m.id ORDER BY measured_at DESC, created_at DESC LIMIT 1';
+  var FIRST = 'FROM pt_entries e WHERE e.member_id = m.id ORDER BY measured_at ASC,  created_at ASC  LIMIT 1';
+  var SQL =
+    'SELECT m.id, m.name, m.phone4, m.created_by, m.created_at, m.updated_at,' +
+    ' (SELECT COUNT(*) FROM pt_entries e WHERE e.member_id = m.id) AS entry_count,' +
+    ' (SELECT weight '          + LAST  + ') AS last_weight,' +
+    ' (SELECT weight '          + FIRST + ') AS first_weight,' +
+    ' (SELECT body_fat_pct '    + LAST  + ') AS last_body_fat,' +
+    ' (SELECT skeletal_muscle ' + LAST  + ') AS last_muscle,' +
+    ' (SELECT bmi '             + LAST  + ') AS last_bmi,' +
+    ' (SELECT measured_at '     + LAST  + ') AS last_measured_at' +
+    ' FROM pt_members m';
+
+  var stmt = q
+    ? env.DB.prepare(SQL + ' WHERE m.name LIKE ?1 OR m.phone4 LIKE ?1 ORDER BY COALESCE(m.updated_at, m.created_at) DESC')
+        .bind('%' + q + '%')
+    : env.DB.prepare(SQL + ' ORDER BY COALESCE(m.updated_at, m.created_at) DESC');
+
+  var out = await stmt.all();
+  return json({ ok: true, rows: out.results || [] });
+}
+
+async function handlePtAdminMember(request, env) {
+  var denied = requireAdmin(request, env);
+  if (denied) return denied;
+
+  var id = cleanId(new URL(request.url).searchParams.get('id'));
+  if (!id) return bad('회원 id 가 올바르지 않습니다.');
+
+  var m = await env.DB.prepare('SELECT id, name, phone4, created_by FROM pt_members WHERE id = ?1').bind(id).first();
+  if (!m) return bad('회원 정보를 찾을 수 없습니다.', 404);
+  return json({ ok: true, id: m.id, name: m.name, phone4: m.phone4, createdBy: m.created_by,
+                entries: await ptEntriesOf(env, m.id) });
+}
+
+// 회원 대신 기록 입력. memberId 로 지정하거나, 이름+번호로 찾는다.
+// 없는 회원이면 consentConfirmed 가 true 일 때만 새로 만든다.
+async function handlePtAdminEntry(request, env) {
+  var denied = requireAdmin(request, env);
+  if (denied) return denied;
+
+  var body = await readJson(request);
+  if (!body) return bad('요청 형식이 올바르지 않습니다.');
+  var e = ptParseEntry(body);
+  if (e.error) return bad(e.error);
+
+  var memberId = null, created = false;
+
+  if (body.memberId) {
+    var byId = cleanId(body.memberId);
+    var found = byId && await env.DB.prepare('SELECT id FROM pt_members WHERE id = ?1').bind(byId).first();
+    if (!found) return bad('회원 정보를 찾을 수 없습니다.', 404);
+    memberId = found.id;
+  } else {
+    var name = cleanName(body.name);
+    var phone4 = cleanPhone4(body.phone4);
+    if (!name) return bad('이름을 확인해 주세요.');
+    if (!phone4) return bad('전화번호 뒷 4자리(숫자 4자리)를 확인해 주세요.');
+
+    var nameKey = ptNameKey(name);
+    var row = await env.DB.prepare('SELECT id FROM pt_members WHERE name_key = ?1 AND phone4 = ?2')
+      .bind(nameKey, phone4).first();
+
+    if (row) {
+      memberId = row.id;
+    } else {
+      if (body.consentConfirmed !== true) {
+        return json({ ok: false, code: 'needs_consent',
+                      error: '처음 등록하는 회원이에요. 회원에게 동의를 받은 뒤 확인란을 체크해 주세요.' }, 400);
+      }
+      memberId = crypto.randomUUID();
+      var now = new Date().toISOString();
+      await env.DB.prepare(
+        'INSERT INTO pt_members (id, name, name_key, phone4, consent_at, created_by, created_at, updated_at) ' +
+        'VALUES (?1, ?2, ?3, ?4, ?5, \'trainer\', ?5, ?5)'
+      ).bind(memberId, name, nameKey, phone4, now).run();
+      created = true;
+    }
+  }
+
+  var id = await ptInsertEntry(env, memberId, e, 'trainer');
+  return json({ ok: true, id: id, memberId: memberId, created: created, bmi: e.bmi });
+}
+
+async function handlePtAdminDeleteEntry(request, env) {
+  var denied = requireAdmin(request, env);
+  if (denied) return denied;
+
+  var body = await readJson(request);
+  var entryId = body ? cleanId(body.entryId) : null;
+  if (!entryId) return bad('삭제할 기록 id 가 올바르지 않습니다.');
+
+  var res = await env.DB.prepare('DELETE FROM pt_entries WHERE id = ?1').bind(entryId).run();
+  return json({ ok: true, deleted: res.meta ? res.meta.changes : 0 });
+}
+
+async function handlePtAdminDeleteMember(request, env) {
+  var denied = requireAdmin(request, env);
+  if (denied) return denied;
+
+  var body = await readJson(request);
+  var id = body ? cleanId(body.id) : null;
+  if (!id) return bad('삭제할 회원 id 가 올바르지 않습니다.');
+
+  await env.DB.batch(ptDeleteMemberStmts(env, id));
+  return json({ ok: true });
+}
+
 /* ------------------------------------------------------------------ 라우팅 */
 
 export default {
@@ -301,14 +721,31 @@ export default {
     }
 
     var method = request.method;
+    var route = method + ' ' + path;
 
     try {
-      if (method === 'POST'   && path === '/api/register')    return await handleRegister(request, env);
-      if (method === 'POST'   && path === '/api/result')      return await handleResult(request, env);
-      if (method === 'POST'   && path === '/api/forget')      return await handleForget(request, env);
-      if (method === 'GET'    && path === '/api/admin/list')  return await handleAdminList(request, env);
-      if (method === 'GET'    && path === '/api/admin/csv')   return await handleAdminCsv(request, env);
-      if (method === 'DELETE' && path === '/api/admin/row')   return await handleAdminDelete(request, env);
+      switch (route) {
+        case 'POST /api/register':          return await handleRegister(request, env);
+        case 'POST /api/result':            return await handleResult(request, env);
+        case 'POST /api/forget':            return await handleForget(request, env);
+        case 'GET /api/admin/list':         return await handleAdminList(request, env);
+        case 'GET /api/admin/csv':          return await handleAdminCsv(request, env);
+        case 'DELETE /api/admin/row':       return await handleAdminDelete(request, env);
+
+        case 'POST /api/pt/login':          return await handlePtLogin(request, env);
+        case 'POST /api/pt/register':       return await handlePtRegister(request, env);
+        case 'POST /api/pt/logout':         return await handlePtLogout(request, env);
+        case 'GET /api/pt/me':              return await handlePtMe(request, env);
+        case 'POST /api/pt/entry':          return await handlePtEntryAdd(request, env);
+        case 'DELETE /api/pt/entry':        return await handlePtEntryDelete(request, env);
+        case 'POST /api/pt/forget':         return await handlePtForget(request, env);
+
+        case 'GET /api/pt/admin/list':      return await handlePtAdminList(request, env);
+        case 'GET /api/pt/admin/member':    return await handlePtAdminMember(request, env);
+        case 'POST /api/pt/admin/entry':    return await handlePtAdminEntry(request, env);
+        case 'DELETE /api/pt/admin/entry':  return await handlePtAdminDeleteEntry(request, env);
+        case 'DELETE /api/pt/admin/member': return await handlePtAdminDeleteMember(request, env);
+      }
     } catch (err) {
       console.error('api error', path, err && err.message);
       return bad('서버에서 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.', 500);

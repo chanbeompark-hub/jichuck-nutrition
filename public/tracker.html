@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>체성분 변화 기록 · 피트니스 박부장</title>
+<meta name="description" content="체중·체지방률·골격근량을 기록하고 시간에 따른 변화를 그래프로 확인하는 PT 회원용 기록 도구입니다.">
+<meta name="author" content="피트니스 박부장 · 박찬범 트레이너">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#EEF0EA; --surface:#FFFFFF; --surface-2:#E4E7DE; --surface-3:#DCE0D3;
+    --border:#D7DBCE; --border-strong:#C3C8B7;
+    --ink:#1B1F1A; --ink-2:#565D52; --ink-3:#868C7E;
+    --accent:#FF7A45; --accent-ink:#B24A1F; --accent-soft:#FFE4D6;
+    --danger:#C4382B; --danger-soft:#FBE2DE;
+    --chart-weight:#eb6834; --chart-weight-wash:rgba(235,104,52,.10);
+    --chart-fat:#d4a017;    --chart-fat-wash:rgba(212,160,23,.12);
+    --chart-muscle:#1baf7a; --chart-muscle-wash:rgba(27,175,122,.10);
+    --grid:#D9DCD0;
+    --shadow: 0 1px 2px rgba(27,31,26,.06), 0 6px 20px -8px rgba(27,31,26,.14);
+    --radius-s:8px; --radius-m:14px; --radius-l:20px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg:#14181F; --surface:#1B2029; --surface-2:#232937; --surface-3:#2A3140;
+      --border:#2E3546; --border-strong:#3B4356;
+      --ink:#F2F1EA; --ink-2:#ABB0A5; --ink-3:#6E7568;
+      --accent:#FF7A45; --accent-ink:#FFB48C; --accent-soft:#3A2A20;
+      --danger:#E5695C; --danger-soft:#3A2320;
+      --chart-weight:#d95926; --chart-weight-wash:rgba(217,89,38,.14);
+      --chart-fat:#c8961a;    --chart-fat-wash:rgba(200,150,26,.16);
+      --chart-muscle:#199e70; --chart-muscle-wash:rgba(25,158,112,.14);
+      --grid:#2A3140;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -10px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#14181F; --surface:#1B2029; --surface-2:#232937; --surface-3:#2A3140;
+    --border:#2E3546; --border-strong:#3B4356;
+    --ink:#F2F1EA; --ink-2:#ABB0A5; --ink-3:#6E7568;
+    --accent:#FF7A45; --accent-ink:#FFB48C; --accent-soft:#3A2A20;
+    --danger:#E5695C; --danger-soft:#3A2320;
+    --chart-weight:#d95926; --chart-weight-wash:rgba(217,89,38,.14);
+    --chart-fat:#c8961a;    --chart-fat-wash:rgba(200,150,26,.16);
+    --chart-muscle:#199e70; --chart-muscle-wash:rgba(25,158,112,.14);
+    --grid:#2A3140;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -10px rgba(0,0,0,.5);
+  }
+
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ background:var(--bg); }
+  body{
+    margin:0; color:var(--ink);
+    font-family:"IBM Plex Sans KR","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; word-break:keep-all; overflow-wrap:break-word;
+  }
+  .mono{ font-family:"IBM Plex Mono",ui-monospace,monospace; }
+  .tab-nums{ font-variant-numeric: tabular-nums; }
+  button, input{ font-family:inherit; }
+  a{ color:inherit; }
+
+  .shell{ max-width:900px; margin:0 auto; padding:20px 20px 64px; }
+
+  .site-nav{
+    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+    font-size:13px; margin-bottom:22px;
+  }
+  .site-nav a{ color:var(--ink-2); text-decoration:none; font-weight:600; }
+  .site-nav a:hover{ color:var(--ink); }
+
+  .topbar{ display:flex; flex-direction:column; gap:4px; margin-bottom:20px; }
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--accent-ink); font-weight:600;
+  }
+  .brand{ font-size:26px; font-weight:700; letter-spacing:-.01em; text-wrap:balance; }
+  .sub{ color:var(--ink-2); font-size:14px; line-height:1.6; max-width:56ch; text-wrap:pretty; }
+
+  .userbar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    margin-top:16px; padding:10px 14px; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-m); box-shadow:var(--shadow);
+  }
+  .userbar-who{ display:flex; align-items:center; gap:8px; font-size:13.5px; }
+  .userbar-name{ font-weight:700; }
+  .role-chip{
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.03em;
+    padding:3px 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent-ink);
+  }
+  .link-btn{
+    appearance:none; border:none; background:transparent; color:var(--ink-2); font:inherit;
+    font-size:12.5px; font-weight:600; cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+    padding:4px;
+  }
+  .link-btn:hover{ color:var(--ink); }
+  .link-btn.danger{ color:var(--danger); }
+
+  .segmented{
+    display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:var(--radius-m); padding:4px;
+  }
+  .segmented button{
+    flex:1; appearance:none; border:none; background:transparent; color:var(--ink-2);
+    font:inherit; font-weight:600; font-size:13.5px; padding:10px 8px; border-radius:var(--radius-s);
+    cursor:pointer; transition:background .15s ease, color .15s ease;
+  }
+  .segmented button:hover{ color:var(--ink); }
+  .segmented button[aria-selected="true"]{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+  .segmented button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .panel{ margin-top:20px; display:flex; flex-direction:column; gap:16px; }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-l);
+    padding:22px; box-shadow:var(--shadow);
+  }
+  .card-title{ font-size:15px; font-weight:700; margin:0 0 2px; }
+  .card-desc{ color:var(--ink-2); font-size:13px; margin:0 0 16px; line-height:1.6; text-wrap:pretty; }
+
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-grid.three{ grid-template-columns:1fr 1fr 1fr; }
+  .field{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .field.span-all{ grid-column:1 / -1; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--ink-2); }
+  .field label .opt{ color:var(--ink-3); font-weight:500; }
+  .field .hint{ font-size:11.5px; color:var(--ink-3); line-height:1.5; }
+  .input{
+    font:inherit; font-size:14.5px; color:var(--ink); background:var(--surface);
+    border:1px solid var(--border-strong); border-radius:var(--radius-s); padding:11px 12px; width:100%;
+  }
+  .input:focus{ outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
+  .group-label{
+    grid-column:1 / -1; font-size:11.5px; font-weight:700; color:var(--accent-ink);
+    letter-spacing:.04em; margin:6px 0 -4px; padding-top:10px; border-top:1px dashed var(--border);
+  }
+
+  .btn{
+    appearance:none; border:1px solid var(--border-strong); background:var(--surface);
+    color:var(--ink); font:inherit; font-weight:600; font-size:13.5px; padding:11px 18px;
+    border-radius:var(--radius-s); cursor:pointer;
+  }
+  .btn:hover{ background:var(--surface-2); }
+  .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .btn:disabled{ opacity:.6; cursor:default; }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-primary:hover{ filter:brightness(1.05); background:var(--accent); }
+  .btn-row{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center; }
+
+  .login-shell{ display:flex; justify-content:center; padding-top:3vh; }
+  .login-card{ width:100%; max-width:440px; display:flex; flex-direction:column; gap:14px; }
+
+  /* 처음 등록할 때 보이는 동의 상자 */
+  .register-box{
+    border:1px solid var(--accent); background:var(--accent-soft); border-radius:var(--radius-m);
+    padding:16px 18px; display:flex; flex-direction:column; gap:12px;
+  }
+  .register-box .who{ font-weight:700; }
+  .privacy{ font-size:12.5px; line-height:1.7; color:var(--ink-2); }
+  .privacy dl{ margin:0; display:grid; grid-template-columns:72px 1fr; gap:6px 12px; }
+  .privacy dt{ font-weight:700; color:var(--ink); }
+  .privacy dd{ margin:0; }
+  .consent-box{
+    display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:13.5px; line-height:1.6;
+    padding:12px 14px; border:1px solid var(--border-strong); border-radius:var(--radius-s); background:var(--surface);
+  }
+  .consent-box input{ width:18px; height:18px; margin:2px 0 0; accent-color:var(--accent); flex:none; }
+  .consent-box.attention{ border-color:var(--danger); background:var(--danger-soft); }
+
+  .trainer-entry{ text-align:center; font-size:12.5px; color:var(--ink-3); }
+  .trainer-box{ border-top:1px dashed var(--border); padding-top:14px; }
+
+  .banner{
+    display:flex; gap:10px; align-items:flex-start; padding:14px 16px; border-radius:var(--radius-m);
+    font-size:13.5px; line-height:1.6; border:1px solid var(--border);
+  }
+  .banner-ok{ background:var(--accent-soft); border-color:var(--accent); color:var(--ink); }
+  .banner-err{ background:var(--danger-soft); border-color:var(--danger); color:var(--ink); }
+  .banner-dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); margin-top:6px; flex:none; }
+  .banner-err .banner-dot{ background:var(--danger); }
+
+  .member-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .member-name{ font-size:19px; font-weight:700; }
+  .member-meta{ color:var(--ink-3); font-size:12.5px; margin-top:2px; }
+  .calc-link{
+    font-size:13px; font-weight:700; color:var(--accent-ink); text-decoration:none;
+    padding:8px 12px; border:1px solid var(--accent); border-radius:999px; background:var(--accent-soft);
+    white-space:nowrap;
+  }
+  .calc-link:hover{ filter:brightness(1.03); }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+  .stat-tile{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-m);
+    padding:14px; display:flex; flex-direction:column; gap:4px;
+  }
+  .stat-label{ font-size:11.5px; color:var(--ink-2); font-weight:600; }
+  .stat-value{ font-size:20px; font-weight:700; }
+  .stat-delta{ font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; line-height:1.45; }
+
+  .chart-card-head{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .metric-toggle{ display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:3px; flex-wrap:wrap; }
+  .metric-toggle button{
+    appearance:none; border:none; background:transparent; font:inherit; font-size:12.5px; font-weight:600;
+    color:var(--ink-2); padding:6px 12px; border-radius:999px; cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .metric-toggle button .sw{ width:8px; height:8px; border-radius:50%; }
+  .metric-toggle button[aria-selected="true"]{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+
+  .chart-wrap{ margin-top:6px; }
+  .chart-svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .chart-empty{
+    display:flex; align-items:center; justify-content:center; text-align:center; min-height:200px; padding:20px;
+    color:var(--ink-3); font-size:13.5px; line-height:1.6;
+    border:1px dashed var(--border-strong); border-radius:var(--radius-m);
+  }
+  .axis-label{ font-family:"IBM Plex Mono",monospace; font-size:10.5px; fill:var(--ink-3); }
+  .grid-line{ stroke:var(--grid); stroke-width:1; }
+  .end-label{ font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; fill:var(--ink); }
+
+  .tooltip{
+    position:absolute; pointer-events:none; background:var(--ink); color:var(--bg);
+    font-family:"IBM Plex Mono",monospace; font-size:12px; padding:8px 10px; border-radius:8px;
+    line-height:1.5; box-shadow:var(--shadow); white-space:nowrap; transform:translate(-50%,-100%);
+    opacity:0; transition:opacity .1s ease; z-index:5;
+  }
+  .tooltip .t-val{ font-weight:600; font-size:13px; }
+  .chart-pos{ position:relative; }
+
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-m); }
+  table{ width:100%; border-collapse:collapse; font-size:13px; min-width:560px; }
+  thead th{
+    text-align:left; font-size:11px; font-weight:600; color:var(--ink-2);
+    padding:10px 12px; background:var(--surface-2); border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  tbody td{ padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr.clickable{ cursor:pointer; }
+  tbody tr.clickable:hover{ background:var(--surface-2); }
+  td.num{ font-family:"IBM Plex Mono",monospace; text-align:right; }
+  th.num{ text-align:right; }
+  td.row-del{ text-align:right; }
+  td.strong{ font-weight:700; }
+  td.empty-row{ text-align:center; color:var(--ink-3); padding:26px; }
+  .by-trainer{
+    display:inline-block; font-size:10px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft);
+    border-radius:4px; padding:0 4px; margin-left:4px; vertical-align:1px;
+  }
+  .scroll-hint{ display:none; font-size:12px; color:var(--ink-3); margin:10px 0 0; }
+
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px;
+    padding:36px 16px; color:var(--ink-3); font-size:13.5px; line-height:1.6;
+  }
+  .empty-state strong{ color:var(--ink-2); font-size:14.5px; }
+
+  .back-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .back-row .link-btn{ padding:4px 0; }
+
+  .footnote{ font-size:12px; color:var(--ink-3); line-height:1.75; padding:0 4px; margin-top:28px; max-width:64ch; }
+  .footnote p + p{ margin-top:6px; }
+  .footnote p{ margin:0; }
+  .credit{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); font-size:12.5px; color:var(--ink-3); }
+  .credit b{ color:var(--ink-2); }
+
+  @media (max-width:560px){
+    .shell{ padding:16px 14px 56px; }
+    .form-grid, .form-grid.three{ grid-template-columns:1fr 1fr; }
+    .field.wide-mobile{ grid-column:1 / -1; }
+    .member-head{ flex-direction:column; }
+    .brand{ font-size:22px; }
+    .card{ padding:18px 16px; }
+    .userbar{ flex-direction:row; }
+    .privacy dl{ grid-template-columns:1fr; gap:2px; }
+    .privacy dt{ margin-top:6px; }
+    .scroll-hint{ display:block; }
+    .btn-row .btn{ flex:1; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <nav class="site-nav">
+    <a href="/">← 식단 칼로리 계산기</a>
+    <span style="color:var(--ink-3); font-weight:600;">피트니스 박부장</span>
+  </nav>
+
+  <div class="topbar">
+    <div class="eyebrow">PT · BODY LOG</div>
+    <div class="brand">체성분 변화 기록</div>
+    <div class="sub" id="sub-text">체중과 인바디 측정값을 기록하고, 시간에 따른 변화를 그래프로 확인하세요.</div>
+    <div class="userbar" id="userbar" hidden>
+      <div class="userbar-who">
+        <span class="userbar-name" id="userbar-name"></span>
+        <span class="role-chip" id="userbar-role"></span>
+      </div>
+      <button type="button" class="link-btn" id="logout-btn">로그아웃</button>
+    </div>
+  </div>
+
+  <!-- ================= 로그인 · 등록 ================= -->
+  <section id="view-login" class="panel" hidden>
+    <div class="login-shell">
+      <div class="card login-card">
+        <div>
+          <p class="card-title">로그인</p>
+          <p class="card-desc" style="margin:0;">이름과 전화번호 뒷 4자리로 들어와요. 처음이면 로그인 후 바로 등록할 수 있어요.</p>
+        </div>
+
+        <form id="login-form" novalidate>
+          <div class="form-grid">
+            <div class="field span-all">
+              <label for="l-name">이름</label>
+              <input class="input" id="l-name" type="text" maxlength="20" autocomplete="name" required>
+            </div>
+            <div class="field span-all">
+              <label for="l-phone">전화번호 뒷 4자리</label>
+              <input class="input mono" id="l-phone" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0000" autocomplete="off" required>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary" id="login-btn" style="flex:1;">로그인</button>
+          </div>
+        </form>
+
+        <div id="register-box" class="register-box" hidden>
+          <div>
+            <div class="who" id="reg-who"></div>
+            <div style="font-size:13px; color:var(--ink-2); margin-top:2px;">이 이름과 번호로 등록된 기록이 없어요. 처음이시면 아래 내용을 확인하고 등록해 주세요.</div>
+          </div>
+          <div class="privacy">
+            <dl>
+              <dt>수집 항목</dt><dd>이름, 전화번호 뒷 4자리, 체중·키·체지방률·골격근량 등 측정값과 메모</dd>
+              <dt>이용 목적</dt><dd>체성분 변화 기록과 PT 상담</dd>
+              <dt>민감정보</dt><dd>체성분 측정값은 <b>건강에 관한 정보</b>로, 이 동의는 그 처리에 대한 별도 동의를 포함합니다</dd>
+              <dt>보관 기간</dt><dd>회원 관리 종료 시까지. 기록 화면의 <b>내 기록 전체 삭제</b>로 언제든 즉시 지울 수 있어요</dd>
+              <dt>동의 거부</dt><dd>거부할 수 있어요. 다만 이 기능은 기록을 저장하는 것이 전부라 거부하면 이용할 수 없어요</dd>
+            </dl>
+          </div>
+          <label class="consent-box">
+            <input type="checkbox" id="reg-consent">
+            <span>위 내용을 확인했고, 개인정보와 <b>건강정보(체성분)</b> 수집·이용에 동의합니다.</span>
+          </label>
+          <button type="button" class="btn btn-primary" id="register-btn">동의하고 등록</button>
+        </div>
+
+        <div id="login-error"></div>
+
+        <div class="trainer-entry">
+          트레이너이신가요? <button type="button" class="link-btn" id="trainer-login-link">관리자 키로 들어가기</button>
+        </div>
+        <form id="trainer-form" class="trainer-box" hidden novalidate>
+          <div class="field">
+            <label for="t-key">관리자 키</label>
+            <input class="input mono" id="t-key" type="password" autocomplete="current-password" placeholder="칼로리 계산기 /admin 과 같은 키">
+            <span class="hint">이 탭을 닫으면 자동으로 잠겨요.</span>
+          </div>
+          <div class="btn-row"><button type="submit" class="btn" style="flex:1;">트레이너 화면 열기</button></div>
+          <div id="trainer-error" style="margin-top:10px;"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 회원 화면 ================= -->
+  <section id="view-member" class="panel" hidden>
+    <div class="card">
+      <p class="card-title">새 기록 입력</p>
+      <p class="card-desc">체중과 키는 꼭, 인바디를 쟀다면 체지방률과 골격근량도 함께 넣어 주세요.</p>
+      <form id="entry-form" novalidate>
+        <div class="form-grid three">
+          <div class="field">
+            <label for="f-date">측정일</label>
+            <input class="input mono" id="f-date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="f-weight">체중 (kg)</label>
+            <input class="input mono" id="f-weight" type="number" inputmode="decimal" min="20" max="250" step="0.1" placeholder="68.5" required>
+          </div>
+          <div class="field">
+            <label for="f-height">키 (cm)</label>
+            <input class="input mono" id="f-height" type="number" inputmode="decimal" min="100" max="230" step="0.1" placeholder="172.0" required>
+          </div>
+          <div class="group-label">인바디 <span style="font-weight:500; color:var(--ink-3);">— 쟀을 때만</span></div>
+          <div class="field">
+            <label for="f-fat">체지방률 (%) <span class="opt">선택</span></label>
+            <input class="input mono" id="f-fat" type="number" inputmode="decimal" min="1" max="70" step="0.1" placeholder="22.4">
+          </div>
+          <div class="field">
+            <label for="f-muscle">골격근량 (kg) <span class="opt">선택</span></label>
+            <input class="input mono" id="f-muscle" type="number" inputmode="decimal" min="5" max="100" step="0.1" placeholder="29.8">
+          </div>
+          <div class="field wide-mobile">
+            <label for="f-memo">메모 <span class="opt">선택</span></label>
+            <input class="input" id="f-memo" type="text" maxlength="60" placeholder="아침 공복">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn btn-primary" id="submit-btn">기록 저장</button>
+        </div>
+      </form>
+    </div>
+    <div id="add-result"></div>
+    <div id="self-progress" style="display:flex; flex-direction:column; gap:16px;"></div>
+    <div class="btn-row" style="justify-content:flex-end; margin-top:0;">
+      <button type="button" class="link-btn danger" id="self-delete-btn">내 기록 전체 삭제</button>
+    </div>
+  </section>
+
+  <!-- ================= 트레이너 화면 ================= -->
+  <section id="view-admin" class="panel" hidden>
+    <div class="segmented" role="tablist" aria-label="트레이너 화면 전환">
+      <button type="button" role="tab" id="atab-manage" aria-selected="true">회원 관리</button>
+      <button type="button" role="tab" id="atab-add" aria-selected="false">기록 추가</button>
+    </div>
+
+    <div id="apanel-manage">
+      <div class="card" id="manage-list-card">
+        <p class="card-title">전체 회원 <span class="mono" id="member-count" style="color:var(--ink-3); font-weight:500;"></span></p>
+        <p class="card-desc">줄을 누르면 그 회원의 그래프와 전체 기록을 볼 수 있어요.</p>
+        <div class="field" style="max-width:280px; margin-bottom:12px;">
+          <input class="input" id="manage-search" type="search" placeholder="이름 또는 뒷 4자리로 검색">
+        </div>
+        <div id="manage-body"></div>
+      </div>
+      <div id="admin-detail" hidden>
+        <div class="back-row">
+          <button type="button" class="link-btn" id="admin-back-btn">← 전체 회원 목록으로</button>
+          <button type="button" class="link-btn danger" id="admin-delete-member-btn">이 회원 삭제</button>
+        </div>
+        <div id="admin-detail-body" style="margin-top:10px; display:flex; flex-direction:column; gap:16px;"></div>
+      </div>
+    </div>
+
+    <div id="apanel-add" hidden>
+      <div class="card">
+        <p class="card-title">회원 대신 기록 입력</p>
+        <p class="card-desc">인바디 측정 후 그 자리에서 입력할 때 쓰세요. 이미 등록된 회원이면 이전 기록에 이어서 쌓여요.</p>
+        <form id="admin-entry-form" novalidate>
+          <div class="form-grid three">
+            <div class="field">
+              <label for="af-name">회원 이름</label>
+              <input class="input" id="af-name" type="text" maxlength="20" autocomplete="off" required>
+            </div>
+            <div class="field">
+              <label for="af-phone">전화번호 뒷 4자리</label>
+              <input class="input mono" id="af-phone" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0000" autocomplete="off" required>
+            </div>
+            <div class="field">
+              <label for="af-date">측정일</label>
+              <input class="input mono" id="af-date" type="date" required>
+            </div>
+            <div class="field">
+              <label for="af-weight">체중 (kg)</label>
+              <input class="input mono" id="af-weight" type="number" inputmode="decimal" min="20" max="250" step="0.1" placeholder="68.5" required>
+            </div>
+            <div class="field">
+              <label for="af-height">키 (cm)</label>
+              <input class="input mono" id="af-height" type="number" inputmode="decimal" min="100" max="230" step="0.1" placeholder="172.0" required>
+            </div>
+            <div class="field">
+              <label for="af-fat">체지방률 (%) <span class="opt">선택</span></label>
+              <input class="input mono" id="af-fat" type="number" inputmode="decimal" min="1" max="70" step="0.1" placeholder="22.4">
+            </div>
+            <div class="field">
+              <label for="af-muscle">골격근량 (kg) <span class="opt">선택</span></label>
+              <input class="input mono" id="af-muscle" type="number" inputmode="decimal" min="5" max="100" step="0.1" placeholder="29.8">
+            </div>
+            <div class="field" style="grid-column:span 2;">
+              <label for="af-memo">메모 <span class="opt">선택</span></label>
+              <input class="input" id="af-memo" type="text" maxlength="60" placeholder="PT 3회차 후 측정">
+            </div>
+            <label class="consent-box field span-all" id="af-consent-box" style="flex-direction:row;">
+              <input type="checkbox" id="af-consent">
+              <span><b>처음 등록하는 회원이라면</b> — 회원에게 개인정보·건강정보 수집·이용 동의를 받았습니다. (기존 회원이면 체크하지 않아도 돼요)</span>
+            </label>
+          </div>
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary" id="admin-submit-btn">기록 저장</button>
+          </div>
+        </form>
+      </div>
+      <div id="admin-add-result"></div>
+    </div>
+  </section>
+
+  <div class="footnote">
+    <p>로그인은 이름과 전화번호 뒷 4자리로 하는 간편 방식이에요. 틀린 시도는 횟수를 제한해 막고 있지만, 진짜 비밀번호만큼 안전하지는 않아요. 메모에 민감한 내용은 남기지 말아 주세요.</p>
+    <p>이 브라우저에서는 90일 동안 로그인이 유지돼요. 공용 기기라면 사용 후 로그아웃해 주세요.</p>
+  </div>
+  <div class="credit">피트니스 박부장 · <b>박찬범 트레이너</b> 제작</div>
+</div>
+
+<script src="/assets/js/tracker.js"></script>
+</body>
+</html>

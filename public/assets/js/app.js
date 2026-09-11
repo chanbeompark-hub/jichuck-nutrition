@@ -844,8 +844,33 @@
 
     fixMiddots(document.body);
 
-    // 저장된 값이 있으면 바로 결과까지 보여 준다
-    if (restored) run(false);
+    // 체성분 기록(/tracker)에서 "이 체중으로 식단 계산하기"로 넘어온 경우
+    var fromTracker = applyUrlPrefill();
+
+    // 저장된 값이 있거나 넘어온 값이 있으면 바로 결과까지 보여 준다
+    if (restored || fromTracker) run(false);
+  }
+
+  // ?weight=68.5&height=172 → 입력칸을 채우고 주소창에서는 지운다
+  function applyUrlPrefill() {
+    var p;
+    try { p = new URLSearchParams(window.location.search); } catch (e) { return false; }
+    var w = num(p.get('weight'), NaN), h = num(p.get('height'), NaN);
+    var ok = false;
+    if (w >= 30 && w <= 200) { $('weight').value = r1(w); ok = true; }
+    if (h >= 130 && h <= 220) { $('height').value = r1(h); ok = true; }
+    if (!ok) return false;
+
+    try { history.replaceState(null, '', window.location.pathname + window.location.hash); } catch (e) { /* noop */ }
+
+    var note = el('div', 'notice calm');
+    note.appendChild(el('span', 'ico', 'ℹ'));
+    note.appendChild(el('div', null,
+      '체성분 기록의 최근 값(' + (w >= 30 ? '체중 ' + r1(w) + 'kg' : '') +
+      (w >= 30 && h >= 130 ? ' · ' : '') + (h >= 130 ? '키 ' + r1(h) + 'cm' : '') +
+      ')을 불러왔어요. 나이·활동량·목표를 확인하고 계산해 주세요.'));
+    $('userForm').insertBefore(note, $('userForm').firstChild);
+    return true;
   }
 
   if (document.readyState === 'loading') {
