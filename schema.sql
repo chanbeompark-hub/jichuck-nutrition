@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS pt_entries (
   height          REAL NOT NULL,
   weight          REAL NOT NULL,
   body_fat_pct    REAL,                   -- 체지방률 (%)
+  body_fat_kg     REAL,                   -- 체지방량 (kg) — 체중 × 체지방률/100 로 서로 채워 준다
   skeletal_muscle REAL,                   -- 골격근량 (kg)
   bmi             REAL,
   memo            TEXT,
@@ -78,6 +79,11 @@ CREATE TABLE IF NOT EXISTS pt_entries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pt_entries_member ON pt_entries (member_id, measured_at);
+
+-- 이미 만들어진 DB 에 body_fat_kg 를 나중에 추가할 때 (한 번만, 이미 있으면 오류가 나며 그대로 두면 됨):
+--   ALTER TABLE pt_entries ADD COLUMN body_fat_kg REAL;
+--   UPDATE pt_entries SET body_fat_kg = ROUND(weight * body_fat_pct / 100.0, 1)
+--    WHERE body_fat_kg IS NULL AND body_fat_pct IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS pt_sessions (
   token_hash   TEXT PRIMARY KEY,          -- SHA-256(토큰) — 원문은 저장하지 않음

@@ -418,10 +418,19 @@ function ptParseEntry(body) {
   if (weight == null) return { error: '체중을 20~250kg 사이로 입력해 주세요.' };
 
   var blank = function (v) { return v === '' || v == null; };
-  var bodyFat = blank(body.bodyFat) ? null : n(body.bodyFat, 1, 70);
-  var muscle  = blank(body.muscle)  ? null : n(body.muscle, 5, 100);
-  if (!blank(body.bodyFat) && bodyFat == null) return { error: '체지방률을 1~70% 사이로 입력해 주세요.' };
-  if (!blank(body.muscle)  && muscle  == null) return { error: '골격근량을 5~100kg 사이로 입력해 주세요.' };
+  var bodyFat   = blank(body.bodyFat)   ? null : n(body.bodyFat, 1, 70);
+  var bodyFatKg = blank(body.bodyFatKg) ? null : n(body.bodyFatKg, 0.5, 150);
+  var muscle    = blank(body.muscle)    ? null : n(body.muscle, 5, 100);
+  if (!blank(body.bodyFat)   && bodyFat   == null) return { error: '체지방률을 1~70% 사이로 입력해 주세요.' };
+  if (!blank(body.bodyFatKg) && bodyFatKg == null) return { error: '체지방량을 0.5~150kg 사이로 입력해 주세요.' };
+  if (!blank(body.muscle)    && muscle    == null) return { error: '골격근량을 5~100kg 사이로 입력해 주세요.' };
+
+  // 체지방률과 체지방량은 체중으로 서로 환산된다. 한쪽만 넣어도 나머지를 채운다.
+  if (bodyFat != null && bodyFatKg == null) bodyFatKg = ptRound1(weight * bodyFat / 100);
+  else if (bodyFatKg != null && bodyFat == null) bodyFat = ptRound1(bodyFatKg / weight * 100);
+  if (bodyFatKg != null && bodyFatKg > weight) {
+    return { error: '체지방량이 체중보다 많아요. 값을 확인해 주세요.' };
+  }
 
   var today = kstToday();
   var date = String(body.measuredAt || '');
@@ -430,7 +439,7 @@ function ptParseEntry(body) {
   if (date < '2000-01-01') return { error: '측정일을 확인해 주세요.' };
 
   return {
-    height: height, weight: weight, bodyFat: bodyFat, muscle: muscle,
+    height: height, weight: weight, bodyFat: bodyFat, bodyFatKg: bodyFatKg, muscle: muscle,
     bmi: ptBmi(height, weight),
     memo: String(body.memo == null ? '' : body.memo).trim().slice(0, 60),
     measuredAt: date
@@ -442,16 +451,16 @@ async function ptInsertEntry(env, memberId, e, by) {
   var now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(
-      'INSERT INTO pt_entries (id, member_id, measured_at, height, weight, body_fat_pct, skeletal_muscle, bmi, memo, created_by, created_at) ' +
-      'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)'
-    ).bind(id, memberId, e.measuredAt, e.height, e.weight, e.bodyFat, e.muscle, e.bmi, e.memo, by, now),
+      'INSERT INTO pt_entries (id, member_id, measured_at, height, weight, body_fat_pct, body_fat_kg, skeletal_muscle, bmi, memo, created_by, created_at) ' +
+      'VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)'
+    ).bind(id, memberId, e.measuredAt, e.height, e.weight, e.bodyFat, e.bodyFatKg, e.muscle, e.bmi, e.memo, by, now),
     env.DB.prepare('UPDATE pt_members SET updated_at = ?2 WHERE id = ?1').bind(memberId, now)
   ]);
   return id;
 }
 
 var PT_ENTRY_COLUMNS =
-  'id, measured_at, height, weight, body_fat_pct, skeletal_muscle, bmi, memo, created_by';
+  'id, measured_at, height, weight, body_fat_pct, body_fat_kg, skeletal_muscle, bmi, memo, created_by';
 
 async function ptEntriesOf(env, memberId) {
   var out = await env.DB.prepare(
@@ -604,6 +613,8 @@ async function handlePtAdminList(request, env) {
     ' (SELECT weight '          + LAST  + ') AS last_weight,' +
     ' (SELECT weight '          + FIRST + ') AS first_weight,' +
     ' (SELECT body_fat_pct '    + LAST  + ') AS last_body_fat,' +
+    ' (SELECT body_fat_kg '     + LAST  + ') AS last_body_fat_kg,' +
+    ' (SELECT body_fat_kg '     + FIRST + ') AS first_body_fat_kg,' +
     ' (SELECT skeletal_muscle ' + LAST  + ') AS last_muscle,' +
     ' (SELECT bmi '             + LAST  + ') AS last_bmi,' +
     ' (SELECT measured_at '     + LAST  + ') AS last_measured_at' +

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>체성분 변화 기록 · 피트니스 박부장</title>
-<meta name="description" content="체중·체지방률·골격근량을 기록하고 시간에 따른 변화를 그래프로 확인하는 PT 회원용 기록 도구입니다.">
+<meta name="description" content="체중·체지방량·체지방률·골격근량을 2주 간격으로 기록하고 변화를 그래프로 확인하는 PT 회원용 기록 도구입니다.">
 <meta name="author" content="피트니스 박부장 · 박찬범 트레이너">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -233,7 +233,7 @@
   .chart-pos{ position:relative; }
 
   .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-m); }
-  table{ width:100%; border-collapse:collapse; font-size:13px; min-width:560px; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
   thead th{
     text-align:left; font-size:11px; font-weight:600; color:var(--ink-2);
     padding:10px 12px; background:var(--surface-2); border-bottom:1px solid var(--border);
@@ -253,6 +253,12 @@
     border-radius:4px; padding:0 4px; margin-left:4px; vertical-align:1px;
   }
   .scroll-hint{ display:none; font-size:12px; color:var(--ink-3); margin:10px 0 0; }
+
+  /* 측정할 때가 됐거나 지난 경우 */
+  .stat-tile.due-now{ background:var(--accent-soft); border-color:var(--accent); }
+  .stat-tile.due-now .stat-label, .stat-tile.due-now .stat-delta{ color:var(--accent-ink); font-weight:600; }
+  td.due-now{ color:var(--accent-ink); font-weight:700; }
+  td.due-over{ color:var(--danger); font-weight:700; }
 
   .empty-state{
     display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px;
@@ -373,7 +379,8 @@
   <section id="view-member" class="panel" hidden>
     <div class="card">
       <p class="card-title">새 기록 입력</p>
-      <p class="card-desc">체중과 키는 꼭, 인바디를 쟀다면 체지방률과 골격근량도 함께 넣어 주세요.</p>
+      <p class="card-desc">체중과 키는 꼭, 인바디를 쟀다면 체지방량·체지방률·골격근량도 함께 넣어 주세요.
+        <b>2주에 한 번</b>, 같은 조건(아침 공복 등)에서 재는 것을 권장합니다.</p>
       <form id="entry-form" novalidate>
         <div class="form-grid three">
           <div class="field">
@@ -390,6 +397,10 @@
           </div>
           <div class="group-label">인바디 <span style="font-weight:500; color:var(--ink-3);">— 쟀을 때만</span></div>
           <div class="field">
+            <label for="f-fatkg">체지방량 (kg) <span class="opt">선택</span></label>
+            <input class="input mono" id="f-fatkg" type="number" inputmode="decimal" min="0.5" max="150" step="0.1" placeholder="15.3">
+          </div>
+          <div class="field">
             <label for="f-fat">체지방률 (%) <span class="opt">선택</span></label>
             <input class="input mono" id="f-fat" type="number" inputmode="decimal" min="1" max="70" step="0.1" placeholder="22.4">
           </div>
@@ -397,7 +408,10 @@
             <label for="f-muscle">골격근량 (kg) <span class="opt">선택</span></label>
             <input class="input mono" id="f-muscle" type="number" inputmode="decimal" min="5" max="100" step="0.1" placeholder="29.8">
           </div>
-          <div class="field wide-mobile">
+          <div class="field span-all">
+            <span class="hint">체지방량과 체지방률은 <b>하나만 넣으면 나머지는 체중으로 자동 계산</b>됩니다.</span>
+          </div>
+          <div class="field span-all">
             <label for="f-memo">메모 <span class="opt">선택</span></label>
             <input class="input" id="f-memo" type="text" maxlength="60" placeholder="아침 공복">
           </div>
@@ -442,7 +456,8 @@
     <div id="apanel-add" hidden>
       <div class="card">
         <p class="card-title">회원 대신 기록 입력</p>
-        <p class="card-desc">인바디 측정 후 그 자리에서 입력할 때 쓰세요. 이미 등록된 회원이면 이전 기록에 이어서 쌓여요.</p>
+        <p class="card-desc">인바디 측정 후 그 자리에서 입력할 때 쓰세요. 이미 등록된 회원이면 이전 기록에 이어서 쌓여요.
+          측정은 <b>2주 간격</b>을 권장합니다.</p>
         <form id="admin-entry-form" novalidate>
           <div class="form-grid three">
             <div class="field">
@@ -466,6 +481,10 @@
               <input class="input mono" id="af-height" type="number" inputmode="decimal" min="100" max="230" step="0.1" placeholder="172.0" required>
             </div>
             <div class="field">
+              <label for="af-fatkg">체지방량 (kg) <span class="opt">선택</span></label>
+              <input class="input mono" id="af-fatkg" type="number" inputmode="decimal" min="0.5" max="150" step="0.1" placeholder="15.3">
+            </div>
+            <div class="field">
               <label for="af-fat">체지방률 (%) <span class="opt">선택</span></label>
               <input class="input mono" id="af-fat" type="number" inputmode="decimal" min="1" max="70" step="0.1" placeholder="22.4">
             </div>
@@ -473,7 +492,7 @@
               <label for="af-muscle">골격근량 (kg) <span class="opt">선택</span></label>
               <input class="input mono" id="af-muscle" type="number" inputmode="decimal" min="5" max="100" step="0.1" placeholder="29.8">
             </div>
-            <div class="field" style="grid-column:span 2;">
+            <div class="field span-all">
               <label for="af-memo">메모 <span class="opt">선택</span></label>
               <input class="input" id="af-memo" type="text" maxlength="60" placeholder="PT 3회차 후 측정">
             </div>
@@ -494,6 +513,8 @@
   <div class="footnote">
     <p>로그인은 이름과 전화번호 뒷 4자리로 하는 간편 방식이에요. 틀린 시도는 횟수를 제한해 막고 있지만, 진짜 비밀번호만큼 안전하지는 않아요. 메모에 민감한 내용은 남기지 말아 주세요.</p>
     <p>이 브라우저에서는 90일 동안 로그인이 유지돼요. 공용 기기라면 사용 후 로그아웃해 주세요.</p>
+    <p><b>측정은 2주에 한 번</b>을 권장해요. 그보다 자주 재면 수분·식사·배변 같은 하루 단위 변동에 묻혀
+      실제 변화가 잘 보이지 않아요. 아침 공복처럼 매번 같은 조건에서 재야 비교가 됩니다.</p>
   </div>
   <div class="credit">피트니스 박부장 · <b>박찬범 트레이너</b> 제작</div>
 </div>

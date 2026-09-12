@@ -77,10 +77,29 @@
 
   // 그래프·요약에 쓰는 항목. 키는 성인이면 거의 안 변해서 그래프에서 뺐다.
   var METRICS = {
-    weight:          { label: '체중',     unit: 'kg', color: '--chart-weight', wash: '--chart-weight-wash', goodDown: true },
-    body_fat_pct:    { label: '체지방률', unit: '%',  color: '--chart-fat',    wash: '--chart-fat-wash',    goodDown: true },
-    skeletal_muscle: { label: '골격근량', unit: 'kg', color: '--chart-muscle', wash: '--chart-muscle-wash', goodDown: false }
+    weight:          { label: '체중',     unit: 'kg', color: '--chart-weight', wash: '--chart-weight-wash' },
+    body_fat_kg:     { label: '체지방량', unit: 'kg', color: '--chart-fat',    wash: '--chart-fat-wash' },
+    body_fat_pct:    { label: '체지방률', unit: '%',  color: '--chart-fat',    wash: '--chart-fat-wash' },
+    skeletal_muscle: { label: '골격근량', unit: 'kg', color: '--chart-muscle', wash: '--chart-muscle-wash' }
   };
+
+  // 체성분은 2주에 한 번 재는 것을 권장한다 (그보다 잦으면 수분·식사 변동에 묻힌다)
+  var RECOMMEND_DAYS = 14;
+
+  function addDays(dateStr, days) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+  function daysBetween(from, to) {
+    return Math.round((Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) / 86400000);
+  }
+  // 마지막 측정일 기준 다음 권장일과 남은 일수
+  function nextDue(lastDate) {
+    if (!lastDate) return null;
+    var due = addDays(lastDate, RECOMMEND_DAYS);
+    return { due: due, left: daysBetween(todayStr(), due) };
+  }
 
   function deltaText(cur, first, unit) {
     var d = r1(cur - first);
@@ -220,10 +239,20 @@
 
   /* ================================================================ 상세 블록 (회원·트레이너 공용) */
 
-  function statTile(label, value, delta) {
-    return '<div class="stat-tile"><div class="stat-label">' + esc(label) + '</div>' +
+  function statTile(label, value, delta, cls) {
+    return '<div class="stat-tile' + (cls ? ' ' + cls : '') + '"><div class="stat-label">' + esc(label) + '</div>' +
       '<div class="stat-value tab-nums">' + esc(value) + '</div>' +
       '<div class="stat-delta">' + esc(delta) + '</div></div>';
+  }
+
+  // 다음 측정 권장일 타일 (마지막 측정 + 2주)
+  function dueTile(lastDate) {
+    var nd = nextDue(lastDate);
+    if (!nd) return '';
+    var when = nd.left > 0 ? nd.left + '일 남았어요'
+             : nd.left === 0 ? '오늘이 그날이에요'
+             : Math.abs(nd.left) + '일 지났어요';
+    return statTile('다음 측정 권장일', fmtFull(nd.due), when, nd.left <= 0 ? 'due-now' : '');
   }
 
   // 항목별 "첫 값 → 최근 값" (그 항목을 잰 기록만 본다)
@@ -262,8 +291,8 @@
       '<div class="card">' +
         '<p class="card-title">전체 기록</p>' +
         '<div class="table-wrap"><table><thead><tr>' +
-          '<th>날짜</th><th class="num">체중</th><th class="num">체지방률</th><th class="num">골격근량</th>' +
-          '<th class="num">BMI</th><th>메모</th>' + (opts.onDelete ? '<th></th>' : '') +
+          '<th>날짜</th><th class="num">체중</th><th class="num">체지방량</th><th class="num">체지방률</th>' +
+          '<th class="num">골격근량</th><th class="num">BMI</th><th>메모</th>' + (opts.onDelete ? '<th></th>' : '') +
         '</tr></thead><tbody class="js-rows"></tbody></table></div>' +
         '<p class="scroll-hint">표를 좌우로 밀면 나머지 항목이 보여요.</p>' +
       '</div>';
@@ -297,7 +326,7 @@
 
       if (!entries.length) {
         statsEl.innerHTML = '';
-        rowsEl.innerHTML = '<tr><td colspan="7" class="empty-row">아직 기록이 없어요.</td></tr>';
+        rowsEl.innerHTML = '<tr><td colspan="8" class="empty-row">아직 기록이 없어요.</td></tr>';
         calcLink.hidden = true;
         return;
       }
@@ -312,6 +341,7 @@
           fl.n > 1 ? deltaText(fl.last, fl.first, m.unit) : '첫 기록'));
       });
       tiles.push(statTile('기록 횟수', entries.length + '회', '최근 ' + fmtFull(last.measured_at)));
+      tiles.push(dueTile(last.measured_at));
       statsEl.innerHTML = tiles.join('');
 
       // 식단 계산기로 최근 키·체중을 넘긴다
@@ -324,6 +354,7 @@
           '<td class="mono">' + esc(fmtFull(e.measured_at)) +
             (e.created_by === 'trainer' ? ' <span class="by-trainer" title="트레이너가 입력한 기록">T</span>' : '') + '</td>' +
           '<td class="num mono">' + cell(e.weight) + '</td>' +
+          '<td class="num mono">' + cell(e.body_fat_kg) + '</td>' +
           '<td class="num mono">' + cell(e.body_fat_pct) + '</td>' +
           '<td class="num mono">' + cell(e.skeletal_muscle) + '</td>' +
           '<td class="num mono">' + cell(e.bmi) + '</td>' +
@@ -355,6 +386,7 @@
       weight: num($(prefix + 'weight').value),
       height: num($(prefix + 'height').value),
       bodyFat: $(prefix + 'fat').value.trim(),
+      bodyFatKg: $(prefix + 'fatkg').value.trim(),
       muscle: $(prefix + 'muscle').value.trim(),
       memo: $(prefix + 'memo').value.trim()
     };
@@ -366,15 +398,45 @@
     if (e.weight == null || e.weight < 20 || e.weight > 250) return '체중을 20~250kg 사이로 입력해 주세요.';
     if (e.height == null || e.height < 100 || e.height > 230) return '키를 100~230cm 사이로 입력해 주세요.';
     if (e.bodyFat !== '' && !(num(e.bodyFat) >= 1 && num(e.bodyFat) <= 70)) return '체지방률을 1~70% 사이로 입력해 주세요.';
+    if (e.bodyFatKg !== '' && !(num(e.bodyFatKg) >= 0.5 && num(e.bodyFatKg) <= 150)) return '체지방량을 0.5~150kg 사이로 입력해 주세요.';
+    if (e.bodyFatKg !== '' && num(e.bodyFatKg) > e.weight) return '체지방량이 체중보다 많아요. 값을 확인해 주세요.';
     if (e.muscle !== '' && !(num(e.muscle) >= 5 && num(e.muscle) <= 100)) return '골격근량을 5~100kg 사이로 입력해 주세요.';
     return null;
   }
 
   function savedText(e) {
     var parts = ['체중 ' + e.weight.toFixed(1) + 'kg'];
+    if (e.bodyFatKg !== '') parts.push('체지방량 ' + num(e.bodyFatKg).toFixed(1) + 'kg');
     if (e.bodyFat !== '') parts.push('체지방률 ' + num(e.bodyFat).toFixed(1) + '%');
     if (e.muscle !== '') parts.push('골격근량 ' + num(e.muscle).toFixed(1) + 'kg');
     return parts.join(' · ');
+  }
+
+  // 체지방률과 체지방량은 체중으로 서로 환산된다. 한쪽을 넣으면 다른 쪽을 채워 준다.
+  // 사용자가 직접 고친 칸은 덮어쓰지 않는다.
+  function bindFatFields(prefix) {
+    var w = $(prefix + 'weight'), pct = $(prefix + 'fat'), kg = $(prefix + 'fatkg');
+    var typed = null;   // 마지막으로 사람이 직접 친 칸
+
+    function sync() {
+      var W = num(w.value);
+      if (!W) return;
+      if (typed === 'pct' && num(pct.value) != null) {
+        kg.value = r1(W * num(pct.value) / 100).toFixed(1);
+        kg.dataset.auto = '1';
+      } else if (typed === 'kg' && num(kg.value) != null) {
+        pct.value = r1(num(kg.value) / W * 100).toFixed(1);
+        pct.dataset.auto = '1';
+      }
+    }
+    pct.addEventListener('input', function () { typed = 'pct'; delete pct.dataset.auto; if (pct.value === '') kg.value = ''; sync(); });
+    kg.addEventListener('input',  function () { typed = 'kg';  delete kg.dataset.auto;  if (kg.value === '')  pct.value = ''; sync(); });
+    // 체중을 고치면 자동으로 채워 둔 쪽만 다시 계산한다
+    w.addEventListener('input', function () {
+      if (typed) sync();
+      else if (num(pct.value) != null && kg.dataset.auto) { typed = 'pct'; sync(); typed = null; }
+    });
+    return function reset() { typed = null; delete pct.dataset.auto; delete kg.dataset.auto; };
   }
 
   function busy(btn, on, idle) {
@@ -509,6 +571,7 @@
     memberBound = true;
     $('f-date').value = todayStr();
     $('f-date').max = todayStr();
+    var resetFat = bindFatFields('f-');
 
     $('entry-form').addEventListener('submit', async function (ev) {
       ev.preventDefault();
@@ -525,7 +588,8 @@
       if (r.status === 401) { expired(); return; }
       if (!r.data.ok) { out.innerHTML = banner(r.data.error || '저장하지 못했어요.'); return; }
       out.innerHTML = banner('저장했어요. ' + savedText(e), 'ok');
-      ['f-weight', 'f-fat', 'f-muscle', 'f-memo'].forEach(function (id) { $(id).value = ''; });
+      ['f-weight', 'f-fat', 'f-fatkg', 'f-muscle', 'f-memo'].forEach(function (id) { $(id).value = ''; });
+      resetFat();
       $('f-date').value = todayStr();
       await reloadMember();
     });
@@ -608,6 +672,7 @@
 
     $('af-date').value = todayStr();
     $('af-date').max = todayStr();
+    var resetAdminFat = bindFatFields('af-');
 
     $('admin-entry-form').addEventListener('submit', async function (ev) {
       ev.preventDefault();
@@ -634,7 +699,8 @@
         return;
       }
       out.innerHTML = banner(name + '님 ' + (r.data.created ? '신규 등록 후 ' : '') + '기록을 저장했어요. ' + savedText(e), 'ok');
-      ['af-weight', 'af-fat', 'af-muscle', 'af-memo'].forEach(function (id) { $(id).value = ''; });
+      ['af-weight', 'af-fat', 'af-fatkg', 'af-muscle', 'af-memo'].forEach(function (id) { $(id).value = ''; });
+      resetAdminFat();
       $('af-consent').checked = false;
       $('af-consent-box').classList.remove('attention');
     });
@@ -665,21 +731,34 @@
     $('manage-body').innerHTML =
       '<div class="table-wrap"><table><thead><tr>' +
         '<th>이름</th><th>전화</th><th class="num">체중</th><th>체중 변화</th>' +
-        '<th class="num">체지방률</th><th class="num">골격근량</th><th class="num">기록</th><th>최근 측정</th>' +
+        '<th class="num">체지방량</th><th class="num">체지방률</th><th class="num">골격근량</th>' +
+        '<th class="num">기록</th><th>최근 측정</th><th>다음 측정</th>' +
       '</tr></thead><tbody>' +
       rows.map(function (m) {
-        var delta = has(m.first_weight) && has(m.last_weight) ? deltaText(m.last_weight, m.first_weight, 'kg') : '—';
+        var delta = (m.entry_count || 0) < 2 ? '첫 기록'
+          : (has(m.first_weight) && has(m.last_weight) ? deltaText(m.last_weight, m.first_weight, 'kg') : '—');
         return '<tr class="clickable" data-id="' + esc(m.id) + '">' +
           '<td class="strong">' + esc(m.name) + '</td>' +
           '<td class="mono">****' + esc(m.phone4) + '</td>' +
           '<td class="num">' + cell(m.last_weight) + '</td>' +
           '<td class="mono">' + esc(delta) + '</td>' +
+          '<td class="num">' + cell(m.last_body_fat_kg) + '</td>' +
           '<td class="num">' + cell(m.last_body_fat) + '</td>' +
           '<td class="num">' + cell(m.last_muscle) + '</td>' +
           '<td class="num">' + (m.entry_count || 0) + '</td>' +
-          '<td class="mono">' + esc(m.last_measured_at ? fmtFull(m.last_measured_at) : '—') + '</td></tr>';
+          '<td class="mono">' + esc(m.last_measured_at ? fmtFull(m.last_measured_at) : '—') + '</td>' +
+          dueCell(m.last_measured_at) + '</tr>';
       }).join('') +
       '</tbody></table></div><p class="scroll-hint">표를 좌우로 밀면 나머지 항목이 보여요.</p>';
+  }
+
+  // 명단의 "다음 측정" 칸 — 지났으면 눈에 띄게
+  function dueCell(lastDate) {
+    var nd = nextDue(lastDate);
+    if (!nd) return '<td class="mono">—</td>';
+    if (nd.left > 0)  return '<td class="mono">' + esc(fmtFull(nd.due)) + ' (' + nd.left + '일)</td>';
+    if (nd.left === 0) return '<td class="mono due-now">오늘</td>';
+    return '<td class="mono due-over">' + Math.abs(nd.left) + '일 지남</td>';
   }
 
   async function openAdminDetail(id) {
