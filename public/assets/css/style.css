@@ -530,7 +530,7 @@ footer .src a { color: #6f8a24; }
 /* ---------- 인쇄 ---------- */
 @media print {
   .topbar, .actions, .swap-row, #foodSection, .hero .lede, .plan-tabs,
-  .scroll-hint, .link-btn, .gate-skip-note, #gate { display: none !important; }
+  .scroll-hint, .link-btn, .gate-skip-note, #gate, #gym-info { display: none !important; }
   body { background: #fff; font-size: 12px; }
   /* 인쇄물에는 누구 결과인지 남기고 제작자 표기는 유지 */
   .welcome { background: none; border: none; border-bottom: 1px solid #ccc; padding-left: 0; }
@@ -538,4 +538,37 @@ footer .src a { color: #6f8a24; }
   section { padding: 10px 0; }
   .plan-panel[hidden] { display: block !important; }
   .plan-panel { break-before: page; }
+}
+
+/* ---------- 지축역 체육관 소개 (SEO) ---------- */
+.gym-card { padding: 24px 26px; }
+.gym-card-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px;
+}
+.gym-card-head h2 {
+  font-size: clamp(18px, 3vw, 22px); font-weight: 800; letter-spacing: -0.02em;
+}
+.gym-badge {
+  font-size: 11.5px; font-weight: 700; color: #6f8a24; background: var(--lime-soft);
+  border: 1px solid var(--lime-line); padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+}
+.gym-desc {
+  font-size: 14px; color: var(--ink-2); line-height: 1.75; max-width: 62em; margin-bottom: 18px;
+}
+.gym-desc b { color: var(--ink); font-weight: 800; }
+.gym-meta {
+  margin: 0 0 18px; display: grid; grid-template-columns: 76px 1fr; gap: 9px 16px;
+  align-items: baseline; font-size: 13.5px;
+}
+.gym-meta dt { font-weight: 800; color: var(--ink-2); }
+.gym-meta dd { margin: 0; color: var(--ink-2); }
+.gym-meta dd a { color: #6f8a24; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.gym-meta-note { color: var(--ink-3); font-size: 12px; font-weight: 500; }
+.gym-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.gym-actions .btn { display: inline-block; text-decoration: none; }
+
+@media (max-width: 560px) {
+  .gym-meta { grid-template-columns: 1fr; gap: 3px 0; }
+  .gym-meta dt { margin-top: 8px; }
+  .gym-meta dt:first-child { margin-top: 0; }
 }
